@@ -209,19 +209,19 @@ class Game(gym.Env):
             # If so, then remove the player and stop the loop
             self.player.kill()
             done = True
-            self.reward += -100
+            self.reward += -200
             self.score += self.reward
         elif pygame.sprite.spritecollideany(self.player, [self.gate]):
             done = True
-            self.reward += 200
+            self.reward += 1000
             self.score += self.reward
-        
-        #exponential reward for getting closer to the gate
-        #self.reward += 100 * math.exp(-self._normalized_player_distance_to_gate()*10)
-        #self.reward = (1 - self._normalized_player_distance_to_gate())*10
-        self.reward = 1/(self._normalized_player_distance_to_gate()**2)
-        #quantize reward
-        self.reward = int(self.reward)*10
+        else:
+            #exponential reward for getting closer to the gate
+            #self.reward += 100 * math.exp(-self._normalized_player_distance_to_gate()*10)
+            #self.reward = (1 - self._normalized_player_distance_to_gate())*10
+            self.reward = 1/(self._normalized_player_distance_to_gate()**2)
+            #quantize reward
+            self.reward = int(self.reward)*10
         
         
         observation = self._get_obs()
@@ -231,6 +231,9 @@ class Game(gym.Env):
 
 
     def render(self):
+
+        if self.render_mode == None:
+            return
 
         canvas = pygame.Surface((self.options.width, self.options.height))
         canvas.fill((0, 0, 0))
