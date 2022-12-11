@@ -1,0 +1,1 @@
+{"memory_size": 10000, "batch_size": 1000, "gamma": 0.89, "param_update_rate": 0, "eps_start": 0.05, "eps_end": 0.05, "eps_decay": 4000}
