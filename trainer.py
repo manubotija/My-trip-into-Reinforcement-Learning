@@ -22,6 +22,7 @@ Continuous state space:
 Bellamn equation:
 Q(s,a) = R(s) + gamma * max(Q(s',a'))
 """
+import sys
 import math
 import random
 import numpy as np
@@ -216,6 +217,8 @@ class Trainer():
         success = False
         positive_final_rewards = 0
         negative_final_rewards = 0
+        score = 0
+        speed = sys.maxsize - 1.0
 
         for i_episode in range(num_episodes):
             state, info = self.env.reset()
@@ -244,8 +247,8 @@ class Trainer():
                 # loss_per_batch += loss
 
                 if done:
-                    # loss = self._optimize()
-                    # loss_per_batch += loss
+                    loss = self._optimize()
+                    loss_per_batch += loss
                     episode_durations.append(t + 1)
                     last_rewards.append(reward.item())
                     
@@ -255,36 +258,43 @@ class Trainer():
                         negative_final_rewards += 1
 
                     score = positive_final_rewards/(positive_final_rewards+negative_final_rewards)
+                    if i_episode == 5:
+                        speed = steps_done/(i_episode+1)
+                    if i_episode > 5:
+                        speed = speed*0.9 + t*0.1
 
                     self._print_status(i_episode, 
                                         num_episodes, 
                                         steps_done, 
                                         np.asanyarray(loss_per_batch).mean(), 
-                                        score)
+                                        score,
+                                        speed)
                     break
                 
                 # Early stopping if not converging in this episode
-                # if t >= max_step_per_episode:
-                #     print("## Max steps reached, stopping at episode {} ##".format(i_episode))
-                #     return episode_durations, last_rewards, success, loss_per_batch
+                if t >= 1e5:
+                    print("## Max steps reached, stopping at episode {} ##".format(i_episode))
+                    return episode_durations, last_rewards, success, loss_per_batch, score, speed
             
             # success condition
             if len(episode_durations) > target_success_window and len(last_rewards) > target_success_window:
                 if np.asarray(episode_durations[-target_success_window:]).mean() < target_max_steps and np.asarray(last_rewards[-target_success_window:]).mean() > 900:
                     print("## Task solved in {} episodes ##".format(i_episode))
                     success = True
-                    return episode_durations, last_rewards, success, loss_per_batch, score
+                    return episode_durations, last_rewards, success, loss_per_batch, score, speed
         
         self._print_status(i_episode, 
                             num_episodes, 
                             steps_done, 
                             np.asanyarray(loss_per_batch).mean(), 
                             score,
+                            speed,
                             end="\n")
-        return episode_durations, last_rewards, success, loss_per_batch, score
+        return episode_durations, last_rewards, success, loss_per_batch, score, speed
 
-    def _print_status(self, episode, num_episodes, steps_done, loss, score, end='\r'):
+    def _print_status(self, episode, num_episodes, steps_done, loss, score, speed, end='\r'):
         print("Step: {:7} Loss: {:4.4}".format(steps_done, loss) , 
             " - episode: {:3}/{:3}".format(episode, num_episodes),
             " - score: {:4.4}".format(score),
+            " - speed: {:4.4} steps/episode".format(speed),
              end=end, flush=True)

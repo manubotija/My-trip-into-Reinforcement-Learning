@@ -117,10 +117,10 @@ class GameOptions():
         return GameOptions(height, width, n_turrets, n_obstacles, max_projectiles_per_turret, fire_turret_step_delay, projectile_speed, turret_bounds, obstacle_bounds, gate_bounds, player_bounds, max_steps)
 
 class Game(gym.Env):
-    metadata = {'render.modes': ['human', 'rgb_array'], "default_render_fps": 60}
+    metadata = {'render.modes': ['human', 'rgb_array'], "default_render_fps": 60, "reward.type": [1,2,3,4]}
     FIRE_TURRET = pygame.USEREVENT + 1
 
-    def __init__(self, render_mode=None, render_fps=None, options=None) -> None:
+    def __init__(self, render_mode=None, render_fps=None, options=None, reward_type=1) -> None:
 
         pygame.init()
         if options is None:
@@ -157,12 +157,15 @@ class Game(gym.Env):
                 "centers" : spaces.Box(low=0, high=max_coordinate, shape=(self.options.n_turrets*self.options.max_projectiles_per_turret*2,), dtype=np.int32),
                 #"sizes" :   spaces.Box(low=0, high=max_coordinate, shape=(self.options.n_turrets*self.options.max_projectiles_per_turret, 2), dtype=np.int32),
             }),
-            "step" : spaces.Box(low=0, high=self.options.max_steps, shape=(1,), dtype=np.int32)
+            # "step" : spaces.Box(low=0, high=self.options.max_steps, shape=(1,), dtype=np.int32)
         })
         
         assert render_mode is None or render_mode in Game.metadata["render.modes"]
         self.render_fps = render_fps if render_fps else Game.metadata["default_render_fps"]
         self.render_mode = render_mode
+
+        assert reward_type in Game.metadata["reward.type"]
+        self.reward_type = reward_type
     
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
@@ -191,7 +194,7 @@ class Game(gym.Env):
         self.turrets_and_obstacles.add(self.obstacles)
         self.all_projectiles = pygame.sprite.Group()
 
-        
+        self.prev_distance_to_gate = self._normalized_player_distance_to_gate()
 
         self.clock = pygame.time.Clock()
 
@@ -232,7 +235,7 @@ class Game(gym.Env):
                 "size" : np.asarray(self.gate.rect.size, dtype=np.int32)
             },
             "projectiles" : self._get_projectiles(),
-            "step" : self.step_count
+            # "step" : self.step_count
         }
 
     # function that returns Dict containing centers and sizes for all projectiles. 
@@ -290,43 +293,68 @@ class Game(gym.Env):
         if self.options.fire_turret_step_delay!=0:
             if self.step_count % self.options.fire_turret_step_delay == 0:
                 self._fire_turret()
-        self.step_count += 1
-
-        self.reward = 0
-        done = False
+        
         self.player.update(actions, self.turrets_and_obstacles)
         for t in self.turrets: t.update(self.obstacles)
         for t in self.turrets: 
             self.all_projectiles.add(t.projectiles)
         self.all_sprites.add(self.all_projectiles)
+        
+        done = False
+        self.reward = 0
+        done = self._compute_reward()
+        
+        observation = self._get_obs()
+        info = self._get_info()
+        self.step_count += 1
+
+        return (observation, self.reward, done, False, info)
+
+    def _compute_reward(self):
+        
+        done = False
         if pygame.sprite.spritecollideany(self.player, self.all_projectiles):
             # If so, then remove the player and stop the loop
             self.player.kill()
             done = True
             self.reward += -200
-            self.score += self.reward
-        elif pygame.sprite.spritecollideany(self.player, [self.gate]):
-            done = True
-            self.reward += 1000
-            self.reward += (self.options.max_steps - self.step_count)
-            self.score += self.reward
-        elif self.step_count >= self.options.max_steps-1:
-            done = True
-            self.reward += -500
-            self.score += self.reward
-        else:
-            #exponential reward for getting closer to the gate
-            #self.reward += 100 * math.exp(-self._normalized_player_distance_to_gate()*10)
-            #self.reward = (1 - self._normalized_player_distance_to_gate())*10
-            #self.reward = 1/(self._normalized_player_distance_to_gate()**2)
-            #quantize reward
-            #self.reward = int(self.reward)*10
-            pass
-        
-        observation = self._get_obs()
-        info = self._get_info()
+            return done
 
-        return (observation, self.reward, done, False, info)
+
+        # Quantized reward as player gets closer to the gate
+        if self.reward_type == 1:
+            if pygame.sprite.spritecollideany(self.player, [self.gate]):
+                done = True
+                self.reward += 1000
+                self.score += self.reward
+            elif self.step_count >= self.options.max_steps-1:
+                pass
+            else:
+                self.reward = 1/(self._normalized_player_distance_to_gate()**2)
+                self.reward = int(self.reward)*10
+        
+        # Binary reward as player gets closer to the gate
+        elif self.reward_type in [2,3,4]:
+            if pygame.sprite.spritecollideany(self.player, [self.gate]):
+                done = True
+                self.reward += 100
+                # If the player gets to the gate in less than 100 steps, then give a bonus
+                if self.reward_type == 3 & self.step_count < 100:
+                    self.reward += 100
+                self.score += self.reward
+            elif self.step_count >= self.options.max_steps-1:
+                # If the player does not get to the gate in less than max_steps, then give a penalty
+                if self.reward_type == 4:
+                    self.reward += -100
+                    done = True
+            else:
+                if self._normalized_player_distance_to_gate() < self.prev_distance_to_gate:
+                    self.reward += 1
+                else:
+                    self.reward += -1
+                self.prev_distance_to_gate = self._normalized_player_distance_to_gate()
+
+        return done
 
 
     def render(self):
