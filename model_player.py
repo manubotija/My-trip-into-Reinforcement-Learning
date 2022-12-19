@@ -1,7 +1,7 @@
 import torch
 from itertools import count
-from models import SimpleLinearModel
-from game import Game, GameOptions, NormalizedFLattenedObservation
+from game import Game, GameOptions
+from wrappers import TorchWrapper
 import numpy as np
 from torchinfo import summary
 from utils import load_model, plot_model_training_history
@@ -44,9 +44,7 @@ model_path = "20221211-225256"
 #plot_model_training_history(model_path)
 model_class, weights, options = load_model(model_path)
 options = GameOptions.from_params(options)
-options.height+=100
-options.width+=100
-env = NormalizedFLattenedObservation(Game(render_mode=None, options=options, render_fps=200))
+env = TorchWrapper(Game(render_mode=None, options=options, render_fps=200))
 # model_class is a str get actual class
 model_class = globals()[model_class]
 

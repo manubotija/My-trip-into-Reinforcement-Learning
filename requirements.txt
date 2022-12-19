@@ -6,3 +6,4 @@ torchaudio
 pytest
 matplotlib
 torchinfo
+pandas

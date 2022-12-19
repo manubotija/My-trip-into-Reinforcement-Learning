@@ -98,6 +98,10 @@ class GameOptions():
             },
             "max_steps" : self.max_steps
         }
+
+    def __str__(self):
+        return str(self.get_params())
+
     # creates Options instance from dictionary
     def from_params(params):
         height = params["height"]
@@ -133,13 +137,13 @@ class Game(gym.Env):
             self.screen = pygame.display.set_mode([self.options.width, self.options.height])
             self.font = pygame.font.SysFont(None, 24)
 
-        self.action_space = spaces.MultiDiscrete([3, 3])
+        self.action_space = spaces.MultiDiscrete([2, 3])
 
         max_coordinate = max(self.options.width, self.options.height)
         self.observation_space = spaces.Dict({
             "player" : spaces.Dict({
                 "center" : spaces.Box(low=0, high=max_coordinate, shape=(2,), dtype=np.int32),
-                "size" : spaces.Box(low=0, high=max_coordinate, shape=(2,), dtype=np.int32)
+                # "size" : spaces.Box(low=0, high=max_coordinate, shape=(2,), dtype=np.int32)
             }),
             "turrets" : spaces.Dict({
                 "centers" : spaces.Box(low=0, high=max_coordinate, shape=(self.options.n_turrets*2,), dtype=np.int32),
@@ -151,13 +155,13 @@ class Game(gym.Env):
             }),
             "gate" : spaces.Dict({
                 "center" : spaces.Box(low=0, high=max_coordinate, shape=(2,), dtype=np.int32),
-                "size" : spaces.Box(low=0, high=max_coordinate, shape=(2,), dtype=np.int32)
+                # "size" : spaces.Box(low=0, high=max_coordinate, shape=(2,), dtype=np.int32)
             }),
             "projectiles" : spaces.Dict({
                 "centers" : spaces.Box(low=0, high=max_coordinate, shape=(self.options.n_turrets*self.options.max_projectiles_per_turret*2,), dtype=np.int32),
                 #"sizes" :   spaces.Box(low=0, high=max_coordinate, shape=(self.options.n_turrets*self.options.max_projectiles_per_turret, 2), dtype=np.int32),
             }),
-            # "step" : spaces.Box(low=0, high=self.options.max_steps, shape=(1,), dtype=np.int32)
+            "step" : spaces.Box(low=0, high=self.options.max_steps, shape=(1,), dtype=np.int32)
         })
         
         assert render_mode is None or render_mode in Game.metadata["render.modes"]
@@ -208,9 +212,11 @@ class Game(gym.Env):
 
         return obs, info
 
-    # computes the distance between the center of the gate and the center of the player
+    def _player_distance_to_gate(self):
+        return np.linalg.norm(np.array(self.player.rect.center) - np.array(self.gate.rect.center))
+
     def _normalized_player_distance_to_gate(self):
-        distance = np.linalg.norm(np.array(self.player.rect.center) - np.array(self.gate.rect.center))
+        distance = self._player_distance_to_gate()
         return distance / (math.sqrt(self.options.width**2 + self.options.height**2))
     
     def _get_info(self):
@@ -220,7 +226,7 @@ class Game(gym.Env):
         return {
             "player" : {
                 "center" : np.asarray(self.player.rect.center, dtype=np.int32),
-                "size" : np.asarray(self.player.rect.size, dtype=np.int32)
+                # "size" : np.asarray(self.player.rect.size, dtype=np.int32)
             },
             "turrets" : {
                 "centers" : np.asarray([turret.rect.center for turret in self.turrets], dtype=np.int32).flatten(),
@@ -232,10 +238,10 @@ class Game(gym.Env):
             },
             "gate" : {
                 "center" : np.asarray(self.gate.rect.center, dtype=np.int32),
-                "size" : np.asarray(self.gate.rect.size, dtype=np.int32)
+                # "size" : np.asarray(self.gate.rect.size, dtype=np.int32)
             },
             "projectiles" : self._get_projectiles(),
-            # "step" : self.step_count
+            "step" : self.step_count
         }
 
     # function that returns Dict containing centers and sizes for all projectiles. 
@@ -303,6 +309,7 @@ class Game(gym.Env):
         done = False
         self.reward = 0
         done = self._compute_reward()
+        self.score += self.reward
         
         observation = self._get_obs()
         info = self._get_info()
@@ -326,7 +333,6 @@ class Game(gym.Env):
             if pygame.sprite.spritecollideany(self.player, [self.gate]):
                 done = True
                 self.reward += 1000
-                self.score += self.reward
             elif self.step_count >= self.options.max_steps-1:
                 pass
             else:
@@ -341,19 +347,15 @@ class Game(gym.Env):
                 # If the player gets to the gate in less than 100 steps, then give a bonus
                 if self.reward_type == 3 & self.step_count < 100:
                     self.reward += 100
-                self.score += self.reward
             elif self.step_count >= self.options.max_steps-1:
                 # If the player does not get to the gate in less than max_steps, then give a penalty
                 if self.reward_type == 4:
                     self.reward += -100
-                    done = True
+                done = True
             else:
-                if self._normalized_player_distance_to_gate() < self.prev_distance_to_gate:
-                    self.reward += 1
-                else:
-                    self.reward += -1
-                self.prev_distance_to_gate = self._normalized_player_distance_to_gate()
-
+                self.reward = self.prev_distance_to_gate - self._player_distance_to_gate()
+                self.prev_distance_to_gate = self._player_distance_to_gate()
+        
         return done
 
 
@@ -400,15 +402,3 @@ class Game(gym.Env):
                 print ("Done, reward: %s, score: %s" % (reward, self.score))
                 self.reset()
         self.close()
-
-
-class NormalizedFLattenedObservation(gym.wrappers.FlattenObservation):
-    def __init__(self, env):
-        super(NormalizedFLattenedObservation, self).__init__(env)
-
-    def observation(self, observation):
-        obs = super().observation(observation)
-        obs = obs.astype(np.float32)
-        #normalize it to be between 0 and 1 using the max value defined in the observation space
-        obs = obs/self.observation_space.high
-        return obs
