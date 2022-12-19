@@ -184,26 +184,14 @@ class Agent():
         """
         # Q(s,a) using actions taken with epsilon greedy
         outputs = self.policy_model(state_batch)
-
-        # this allows to work with both Cartpole and Game environments
-        dim = 1 if self.action_shape[0]==1 else 2
-        if dim == 2:
-            outputs = outputs.view(self.action_shape)
-        state_action_values = outputs.gather(dim, action_batch.unsqueeze(dim=1)).squeeze(dim=1)
+        state_action_values = outputs.gather(1, action_batch.unsqueeze(dim=1)).squeeze(dim=1)
 
         # max(Q(s',a')) only for non final states (for final states is 0)
         # reward + gamma * max(Q(s',a'))
-        if dim==1:
-            next_state_values = torch.zeros((self.hyperparams.batch_size), device=self.device)
-            with torch.no_grad(): 
-                next_state_values[non_final_mask] = self.target_model(non_final_next_states).max(1).values
-            expected_state_action_values = (next_state_values * self.hyperparams.gamma) + reward_batch
-        else:
-            next_state_values = torch.zeros((self.hyperparams.batch_size, dim), device=self.device)
-            with torch.no_grad(): 
-                next_state_values[non_final_mask, :] = self.target_model(non_final_next_states).view(self.action_shape).max(-1).values
-            expected_state_action_values = (next_state_values * self.hyperparams.gamma) + reward_batch.unsqueeze(dim=-1)
-            
+        next_state_values = torch.zeros((self.hyperparams.batch_size), device=self.device)
+        with torch.no_grad(): 
+            next_state_values[non_final_mask] = self.target_model(non_final_next_states).max(1).values
+        expected_state_action_values = (next_state_values * self.hyperparams.gamma) + reward_batch
         
         # Compute the loss
         criterion = nn.SmoothL1Loss()

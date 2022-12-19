@@ -1,7 +1,7 @@
 
 from models import *
 from game import Game, GameOptions
-from wrappers import TorchWrapper
+from wrappers import TorchWrapper, TorchWrapperSettings
 from gym.wrappers import FlattenObservation
 from agent import Agent, HyperParams
 import numpy as np
@@ -15,17 +15,17 @@ import pandas as pd
 # if gpu is to be used
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-def run_training(options, model_class, hyperparams=None, reward_type=1, model_weights=None):
+def run_training(options, model_class, wrapper_settings, hyperparams=None, model_weights=None):
     env = TorchWrapper(Game(  render_mode=None, 
                                                 options=options, 
                                                 render_fps=1000,
-                                                reward_type=reward_type,
-                                                ), device=device, normalize=False) 
+                                                ), device=device, 
+                                                wrapper_settings=wrapper_settings) 
     eval_env = TorchWrapper(Game(  render_mode=None, 
                                                 options=options, 
                                                 render_fps=1000,
-                                                reward_type=reward_type,
-                                                ), device=device, normalize=False) 
+                                                ), device=device,
+                                                wrapper_settings=wrapper_settings) 
 
     obs_shape, num_actions_act, action_shape = env.get_shapes()
 
@@ -52,7 +52,7 @@ def run_training(options, model_class, hyperparams=None, reward_type=1, model_we
                         final_plot=False)
     
     durations, rewards, success, loss, average_score, speed = agent.do_train(
-                                                        num_episodes = 1000,
+                                                        num_episodes = 200,
                                                         target_avg_score=200)
     
 
@@ -62,7 +62,7 @@ def run_training(options, model_class, hyperparams=None, reward_type=1, model_we
                                 options=options,
                                 scores=rewards,
                                 durations=durations,
-                                loss=loss)
+                                loss=loss, wrapper_settings=wrapper_settings)
 
     return save_path, success, average_score, speed
 
@@ -88,7 +88,7 @@ def _add_to_table(table, hyperParams, average_score, speed, save_path, reward_ty
     return table
 
 
-def hyperparameter_search(options, hyperParams):
+def hyperparameter_search(options, hyperParams, wrapper_settings):
 # Hyperparameter search
     gamma_list = [0.99,0.9,0.999]
     eps_decay_list = [4000, 8000]
@@ -114,12 +114,13 @@ def hyperparameter_search(options, hyperParams):
                         hyperParams.eps_decay = eps_decay
                         hyperParams.eps_end = eps_end
                         hyperParams.batch_size = batch_size
+                        options.reward_type = reward_type
                         for i in range(max_tries_per_config):
                             save_path, success, average_score, avg_speed = run_training(
-                                                                        options, 
-                                                                        SimpleLinearModel, 
-                                                                        hyperParams, 
-                                                                        reward_type)
+                                                                        options,
+                                                                        SimpleLinearModel,
+                                                                        wrapper_settings, 
+                                                                        hyperParams)
 
                             table = _add_to_table(table, hyperParams, average_score, avg_speed, save_path, reward_type, success)
                             print(table)
@@ -148,6 +149,10 @@ def hyperparameter_search(options, hyperParams):
     return
 
 
+wrapper_settings = TorchWrapperSettings(
+                        normalize=True, 
+                        flatten_action=True)
+
 
 hyperParams = HyperParams(
                         memory_size=10000, 
@@ -160,28 +165,17 @@ hyperParams = HyperParams(
                         lr=1e-4
                         )
 
-options = GameOptions(  height=300, 
-                        width=300, 
+options = GameOptions(  height=600, 
+                        width=400, 
                         n_obstacles=0, 
                         n_turrets=0, 
                         max_projectiles_per_turret=0, 
                         fire_turret_step_delay=0,
-                        max_steps=300
+                        max_steps=300,
+                        reward_type=None,
                         )
 
-options.player_bounds = Rect(0, options.height*0.8, options.width, options.height*0.2)
-options.gate_bounds= Rect(0, 0, options.width, options.height*0.2)
+options.player_bounds = Rect(0, 0, options.width, options.height)
+options.gate_bounds= Rect(0, 0, options.width, options.height)
 
-hyperparameter_search(options, hyperParams)
-quit()
-#weights_path, success, average_score = run_training(options, SimpleLinearModel, hyperParams)
-
-model_path = "20221211-225256"
-
-#plot_model_training_history(model_path)
-_ , weights, _ = load_model(model_path)
-weights_path, success, average_score = run_training(options, SimpleLinearModel, hyperParams, weights)
-
-quit()
-
-options.fire_turret_step_delay = 100
+hyperparameter_search(options, hyperParams, wrapper_settings)

@@ -12,7 +12,7 @@ method that
 4) saves a json file with the parameters used to create the environment
 5) saves the scores, episode durations and loss in a json file
 """
-def save_model(policy_model, target_model, agent, options, scores, durations, loss, root="checkpoints", save_memory=False):
+def save_model(policy_model, target_model, agent, options, scores, durations, loss, wrapper_settings, root="checkpoints", save_memory=False):
     # create a folder with the current time in its name
     folder_name = time.strftime("{}/%Y%m%d-%H%M%S".format(root))
     os.mkdir(folder_name)
@@ -29,6 +29,8 @@ def save_model(policy_model, target_model, agent, options, scores, durations, lo
     # save the parameters used to create the environment
     with open(folder_name + "/env_params.json", "w") as f:
         json.dump(options.get_params(), f)
+    with open(folder_name + "/wrapper_params.json", "w") as f:
+        json.dump(wrapper_settings.get_params(), f)
     # save the scores, episode durations and loss in a json file
     with open(folder_name + "/scores.json", "w") as f:
         json.dump(scores, f)
@@ -57,8 +59,10 @@ def load_model(folder_name):
     # load the environment parameters
     with open(folder_name + "/env_params.json", "r") as f:
         options = json.load(f)
+    with open(folder_name + "/wrapper_params.json", "r") as f:
+        wrapper_settings = json.load(f)
 
-    return policy_weights, target_weights, policy_model_class, target_model_class, options
+    return policy_weights, target_weights, policy_model_class, target_model_class, options, wrapper_settings
 
 def load_memory(folder_name):
     with open(folder_name + "/agent_memory.json", "r") as f:

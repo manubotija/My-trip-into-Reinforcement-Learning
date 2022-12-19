@@ -31,7 +31,8 @@ class GameOptions():
                 obstacle_bounds : pygame.Rect = None,
                 gate_bounds : pygame.Rect = None,
                 player_bounds : pygame.Rect = None,
-                max_steps = 10000
+                max_steps = 10000,
+                reward_type = 2
                 ) -> None:
         
         self.height = height
@@ -44,6 +45,7 @@ class GameOptions():
         self.fire_turret_step_delay = fire_turret_step_delay
         self.projectile_speed = projectile_speed
         self.max_steps = max_steps
+        self.reward_type = reward_type
         
         if turret_bounds == None:
             self.turret_bounds = pygame.Rect(0, 0, width*0.95, height*0.95)
@@ -96,7 +98,8 @@ class GameOptions():
                 "width" : self.player_bounds.width,
                 "height" : self.player_bounds.height
             },
-            "max_steps" : self.max_steps
+            "max_steps" : self.max_steps,
+            "reward_type" : self.reward_type          
         }
 
     def __str__(self):
@@ -118,13 +121,14 @@ class GameOptions():
         gate_bounds = pygame.Rect(params["gate_bounds"]["x"], params["gate_bounds"]["y"], params["gate_bounds"]["width"], params["gate_bounds"]["height"])
         player_bounds = pygame.Rect(params["player_bounds"]["x"], params["player_bounds"]["y"], params["player_bounds"]["width"], params["player_bounds"]["height"])
         max_steps = params["max_steps"]
-        return GameOptions(height, width, n_turrets, n_obstacles, max_projectiles_per_turret, fire_turret_step_delay, projectile_speed, turret_bounds, obstacle_bounds, gate_bounds, player_bounds, max_steps)
+        reward_type = params["reward_type"]
+        return GameOptions(height, width, n_turrets, n_obstacles, max_projectiles_per_turret, fire_turret_step_delay, projectile_speed, turret_bounds, obstacle_bounds, gate_bounds, player_bounds, max_steps, reward_type)
 
 class Game(gym.Env):
     metadata = {'render.modes': ['human', 'rgb_array'], "default_render_fps": 60, "reward.type": [1,2,3,4]}
     FIRE_TURRET = pygame.USEREVENT + 1
 
-    def __init__(self, render_mode=None, render_fps=None, options=None, reward_type=1) -> None:
+    def __init__(self, render_mode=None, render_fps=None, options=None) -> None:
 
         pygame.init()
         if options is None:
@@ -168,8 +172,8 @@ class Game(gym.Env):
         self.render_fps = render_fps if render_fps else Game.metadata["default_render_fps"]
         self.render_mode = render_mode
 
-        assert reward_type in Game.metadata["reward.type"]
-        self.reward_type = reward_type
+        assert self.options.reward_type in Game.metadata["reward.type"]
+        self.reward_type = self.options.reward_type
     
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)

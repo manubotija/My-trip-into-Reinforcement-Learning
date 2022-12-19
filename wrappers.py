@@ -2,6 +2,18 @@ import torch
 import gym
 import numpy as np
 
+
+class TorchWrapperSettings():
+    def __init__(self, normalize=False, flatten_action=False):
+        self.normalize = normalize
+        self.flatten_action = flatten_action
+    def __str__(self) -> str:
+        return str(self.get_params())
+    def get_params(self):
+        return {"normalize": self.normalize, "flatten_action": self.flatten_action}
+    def from_params(params):
+        return TorchWrapperSettings(params["normalize"], params["flatten_action"])
+    
 class TorchWrapper(gym.Wrapper):
     
     """
@@ -11,13 +23,18 @@ class TorchWrapper(gym.Wrapper):
     - Converts the action to a numpy array for the environment
     - Converts the reward to a torch tensor
     """
-    def __init__(self, env, device="cpu", normalize=True):
+    def __init__(self, env, device="cpu", wrapper_settings=TorchWrapperSettings()):
         env = gym.wrappers.FlattenObservation(env)
         super(TorchWrapper, self).__init__(env)
         self.device = device
-        self.normalize = normalize
+        self.normalize = wrapper_settings.normalize
+        self.flatten_action = wrapper_settings.flatten_action
         obs, _ = self.env.reset()
         self.obs_shape = obs.shape[0]
+        
+        #if action space is multidiscrete, convert it to a single discrete space with as many combinations as possible
+        if isinstance(self.env.action_space, gym.spaces.MultiDiscrete) and self.flatten_action:
+            self.action_space = gym.spaces.Discrete(self.env.action_space.nvec[1]**self.env.action_space.nvec[0])
 
     def _observation(self, obs):
         if self.normalize:
@@ -34,16 +51,26 @@ class TorchWrapper(gym.Wrapper):
         return obs, info
 
     def step(self, action):
-        if(len(action.shape) == 1):
+        
+        if self.flatten_action:
+            shape = [self.env.action_space.nvec[1] for _ in range(self.env.action_space.nvec[0])]
+            action = np.unravel_index(action, shape)
+        elif(len(action.shape) == 1):
             action = action.squeeze(dim=0).item()
         else:
             action = action.squeeze(dim=0).numpy()
+            
         obs, reward, done, _, info = self.env.step(action)
         obs = self._observation(obs)
         reward = torch.tensor([reward], device=self.device, dtype=torch.float32)
         return obs, reward, done, _, info
 
     def get_shapes(self):
-        action_shape = (-1, len(self.env.action_space.nvec), np.max(self.env.action_space.nvec))
-        num_actions_act = self.env.action_space.nvec[0]*self.env.action_space.nvec[1]
+        if not self.flatten_action:
+            action_shape = (-1, len(self.env.action_space.nvec), np.max(self.env.action_space.nvec))
+            num_actions_act = self.env.action_space.nvec[0]*self.env.action_space.nvec[1]
+        else:
+            action_shape = (-1, self.action_space.n,)
+            num_actions_act = self.action_space.n
+
         return self.obs_shape, num_actions_act, action_shape
