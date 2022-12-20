@@ -29,16 +29,18 @@ def run_training(options, model_class, wrapper_settings, hyperparams=None, model
 
     obs_shape, num_actions_act, action_shape = env.get_shapes()
 
+    model_params = ModelParams(obs_shape, num_actions_act, 256, 4)
+
     # policy_model is the model that is trained
-    policy_model = model_class(obs_shape, num_actions_act).to(device)
+    policy_model = model_class(model_params).to(device)
     # target model is the model that is used to calculate the target Q values
-    target_model = model_class(obs_shape, num_actions_act).to(device)
+    target_model = model_class(model_params).to(device)
 
     if model_weights is not None:
         policy_model.load_state_dict(model_weights)
         target_model.load_state_dict(model_weights)
 
-    optimizer = optim.Adam(policy_model.parameters(), lr=hyperparams.lr, amsgrad=True)
+    optimizer = optim.AdamW(policy_model.parameters(), lr=hyperparams.lr, amsgrad=True)
 
     agent = Agent(policy_model=policy_model, 
                         target_model=target_model, 
@@ -52,8 +54,8 @@ def run_training(options, model_class, wrapper_settings, hyperparams=None, model
                         final_plot=False)
     
     durations, rewards, success, loss, average_score, speed = agent.do_train(
-                                                        num_episodes = 200,
-                                                        target_avg_score=200)
+                                                        num_episodes = 3000,
+                                                        target_avg_score=100000)
     
 
     save_path = save_model( policy_model=policy_model,
@@ -74,6 +76,7 @@ def _init_table():
 
 def _add_to_table(table, hyperParams, average_score, speed, save_path, reward_type, success):
     # Create a new dataframe with the new row
+    success = bool(success)
     new_row = pd.DataFrame({'save_path': save_path,
                         'gamma': hyperParams.gamma,
                         'eps_decay': hyperParams.eps_decay,
@@ -90,11 +93,11 @@ def _add_to_table(table, hyperParams, average_score, speed, save_path, reward_ty
 
 def hyperparameter_search(options, hyperParams, wrapper_settings):
 # Hyperparameter search
-    gamma_list = [0.99,0.9,0.999]
-    eps_decay_list = [4000, 8000]
-    eps_end_list = [0.1, 0.05]
+    gamma_list = [0.999]
+    eps_decay_list = [4000]
+    eps_end_list = [0.05]
     batch_size_list = [128]
-    reward_type_list = [2,3,4]
+    reward_type_list = [4]
 
     max_tries_per_config = 1
 
@@ -165,17 +168,20 @@ hyperParams = HyperParams(
                         lr=1e-4
                         )
 
-options = GameOptions(  height=600, 
-                        width=400, 
-                        n_obstacles=0, 
-                        n_turrets=0, 
-                        max_projectiles_per_turret=0, 
-                        fire_turret_step_delay=0,
-                        max_steps=300,
-                        reward_type=None,
-                        )
+# options = GameOptions(  height=600, 
+#                         width=400, 
+#                         n_obstacles=1, 
+#                         n_turrets=1, 
+#                         max_projectiles_per_turret=3, 
+#                         fire_turret_step_delay=30,
+#                         max_steps=300,
+#                         reward_type=None,
+#                         )
 
-options.player_bounds = Rect(0, 0, options.width, options.height)
-options.gate_bounds= Rect(0, 0, options.width, options.height)
+# options.player_bounds = Rect(0, 0, options.width, options.height)
+# options.gate_bounds= Rect(0, 0, options.width, options.height)
+
+options = GameOptions()
+options.max_steps = 300
 
 hyperparameter_search(options, hyperParams, wrapper_settings)

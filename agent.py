@@ -282,6 +282,7 @@ class Agent():
         success = False
         avg_score = 0
         avg_speed = 0
+        avg_loss = 0
 
         for i_episode in range(num_episodes):
             state, info = self.env.reset()
@@ -292,7 +293,7 @@ class Agent():
                 obs, reward, terminated, truncated, info = self.env.step(action)
                 done = terminated or truncated
                 episode_score += reward.item()
-                #self.env.render()
+                self.env.render()
                 
                 if not done:
                     next_state = obs
@@ -313,14 +314,16 @@ class Agent():
                     if i_episode < average_factor:
                         avg_score = sum(score_hist)/(i_episode+1)
                         avg_speed = steps_done/(i_episode+1)
+                        avg_loss = sum(loss_per_batch)/(i_episode+1)
                     else:
                         avg_score = sum(score_hist[-average_factor:])/(average_factor)
                         avg_speed = sum(episode_durations[-average_factor:])/(average_factor)
+                        avg_loss = sum(loss_per_batch[-average_factor:])/(average_factor)
 
                     self._print_status(i_episode, 
                                         num_episodes, 
                                         steps_done, 
-                                        loss_per_batch, 
+                                        avg_loss, 
                                         avg_score,
                                         avg_speed)
                     break
@@ -345,7 +348,7 @@ class Agent():
         self._print_status(i_episode, 
                             num_episodes, 
                             steps_done, 
-                            loss_per_batch, 
+                            avg_loss, 
                             avg_score,
                             avg_speed,
                             end="\n")
@@ -363,7 +366,7 @@ class Agent():
         
         eval_score = self._evaluate_target_model()
 
-        print("Step: {:7} Loss: {:4.4}".format(steps_done, np.asanyarray(loss).mean()) , 
+        print("Step: {:7} Loss: {:4.4}".format(steps_done, loss) , 
             " - episode: {:3}/{:3}".format(episode+1, num_episodes),
             " - avg_score: {:4.4}".format(score),
             " - avg_speed: {:4.4} steps/episode".format(speed),

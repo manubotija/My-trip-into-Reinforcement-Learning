@@ -7,3 +7,4 @@ pytest
 matplotlib
 torchinfo
 pandas
+moviepy

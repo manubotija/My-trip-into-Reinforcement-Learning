@@ -125,7 +125,7 @@ class GameOptions():
         return GameOptions(height, width, n_turrets, n_obstacles, max_projectiles_per_turret, fire_turret_step_delay, projectile_speed, turret_bounds, obstacle_bounds, gate_bounds, player_bounds, max_steps, reward_type)
 
 class Game(gym.Env):
-    metadata = {'render.modes': ['human', 'rgb_array'], "default_render_fps": 60, "reward.type": [1,2,3,4]}
+    metadata = {'render.modes': ['human', 'rgb_array'], "default_render_fps": 60, "reward.type": [1,2,3,4,5]}
     FIRE_TURRET = pygame.USEREVENT + 1
 
     def __init__(self, render_mode=None, render_fps=None, options=None) -> None:
@@ -151,11 +151,11 @@ class Game(gym.Env):
             }),
             "turrets" : spaces.Dict({
                 "centers" : spaces.Box(low=0, high=max_coordinate, shape=(self.options.n_turrets*2,), dtype=np.int32),
-                "sizes" :   spaces.Box(low=0, high=max_coordinate, shape=(self.options.n_turrets*2,), dtype=np.int32),
+                #"sizes" :   spaces.Box(low=0, high=max_coordinate, shape=(self.options.n_turrets*2,), dtype=np.int32),
             }),
             "obstacles" : spaces.Dict({
                 "centers" : spaces.Box(low=0, high=max_coordinate, shape=(self.options.n_obstacles*2,), dtype=np.int32),
-                "sizes" :   spaces.Box(low=0, high=max_coordinate, shape=(self.options.n_obstacles*2,), dtype=np.int32),
+                #"sizes" :   spaces.Box(low=0, high=max_coordinate, shape=(self.options.n_obstacles*2,), dtype=np.int32),
             }),
             "gate" : spaces.Dict({
                 "center" : spaces.Box(low=0, high=max_coordinate, shape=(2,), dtype=np.int32),
@@ -202,7 +202,8 @@ class Game(gym.Env):
         self.turrets_and_obstacles.add(self.obstacles)
         self.all_projectiles = pygame.sprite.Group()
 
-        self.prev_distance_to_gate = self._normalized_player_distance_to_gate()
+        self.prev_distance_to_gate = self._player_distance_to_gate()
+        self.min_steps = int(self._player_distance_to_gate() / self.player.speed)
 
         self.clock = pygame.time.Clock()
 
@@ -234,11 +235,11 @@ class Game(gym.Env):
             },
             "turrets" : {
                 "centers" : np.asarray([turret.rect.center for turret in self.turrets], dtype=np.int32).flatten(),
-                "sizes" : np.asarray([turret.rect.size for turret in self.turrets], dtype=np.int32).flatten()
+                #"sizes" : np.asarray([turret.rect.size for turret in self.turrets], dtype=np.int32).flatten()
             },
             "obstacles" : {
                 "centers" : np.asarray([obstacle.rect.center for obstacle in self.obstacles], dtype=np.int32).flatten(),
-                "sizes" : np.asarray([obstacle.rect.size for obstacle in self.obstacles], dtype=np.int32).flatten()
+                #"sizes" : np.asarray([obstacle.rect.size for obstacle in self.obstacles], dtype=np.int32).flatten()
             },
             "gate" : {
                 "center" : np.asarray(self.gate.rect.center, dtype=np.int32),
@@ -291,7 +292,9 @@ class Game(gym.Env):
             elif event.type == QUIT:
                 self.running = False
             elif event.type == Game.FIRE_TURRET:
-                for t in self.turrets: t.fire(self.player.rect, self.player.motion_vector)
+                    for t in self.turrets:
+                        if len(self.all_projectiles) < self.options.max_projectiles_per_turret * self.options.n_turrets:
+                            t.fire(self.player.rect, self.player.motion_vector)
 
     def step(self, actions):
 
@@ -324,41 +327,38 @@ class Game(gym.Env):
     def _compute_reward(self):
         
         done = False
+        # End condition 1: Player dies
         if pygame.sprite.spritecollideany(self.player, self.all_projectiles):
-            # If so, then remove the player and stop the loop
             self.player.kill()
             done = True
-            self.reward += -200
-            return done
-
-
-        # Quantized reward as player gets closer to the gate
-        if self.reward_type == 1:
-            if pygame.sprite.spritecollideany(self.player, [self.gate]):
-                done = True
-                self.reward += 1000
-            elif self.step_count >= self.options.max_steps-1:
-                pass
-            else:
-                self.reward = 1/(self._normalized_player_distance_to_gate()**2)
-                self.reward = int(self.reward)*10
-        
-        # Binary reward as player gets closer to the gate
-        elif self.reward_type in [2,3,4]:
-            if pygame.sprite.spritecollideany(self.player, [self.gate]):
-                done = True
+            self.reward += -100
+        # End condition 2: Player reaches the gate
+        elif pygame.sprite.spritecollideany(self.player, [self.gate]):
+            done = True
+            self.reward += 100
+            # If the player gets to the gate in less than X steps, then give a bonus. 
+            if self.reward_type == 4 & self.step_count < self.min_steps*1.2:
                 self.reward += 100
-                # If the player gets to the gate in less than 100 steps, then give a bonus
-                if self.reward_type == 3 & self.step_count < 100:
-                    self.reward += 100
-            elif self.step_count >= self.options.max_steps-1:
-                # If the player does not get to the gate in less than max_steps, then give a penalty
-                if self.reward_type == 4:
-                    self.reward += -100
-                done = True
+        # End condition 3: Player does not reach the gate in less than max_steps
+        elif self.step_count >= self.options.max_steps-1:
+            done = True
+            # If the player does not reach the gate in less than max_steps steps, then give a penalty.
+            if self.reward_type == 5:
+                self.reward += -100
+        # Reward for getting closer to the gate
+        else:
+            delta_distance = self.prev_distance_to_gate - self._player_distance_to_gate()
+            self.prev_distance_to_gate = self._player_distance_to_gate()
+            # Quantized reward as player gets closer to the gate. No penalty for getting further away
+            if self.reward_type == 1:
+                self.reward = 1/(self._normalized_player_distance_to_gate()**2)
+                self.reward = int(self.reward)
+            # Binary reward if player gets closer to the gate, penalty if it does not
+            elif self.reward_type == 2:
+                self.reward += 1 if delta_distance>0 else -1
+            # Reward equal to the delta distance compared to the previous step
             else:
-                self.reward = self.prev_distance_to_gate - self._player_distance_to_gate()
-                self.prev_distance_to_gate = self._player_distance_to_gate()
+                self.reward = delta_distance
         
         return done
 
