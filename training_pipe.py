@@ -93,7 +93,7 @@ def _add_to_table(table, hyperParams, average_score, speed, save_path, reward_ty
 
 def hyperparameter_search(options, hyperParams, wrapper_settings):
 # Hyperparameter search
-    gamma_list = [0.999]
+    gamma_list = [0.98]
     eps_decay_list = [4000]
     eps_end_list = [0.05]
     batch_size_list = [128]

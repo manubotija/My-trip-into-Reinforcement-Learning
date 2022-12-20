@@ -62,7 +62,7 @@ class ModelPlayer:
         
 
 
-MODEL_PATH = "checkpoints/20221220-165210"
+MODEL_PATH = "checkpoints/20221220-181048"
 
 plot_model_training_history(MODEL_PATH)
 policy_model, target_model, options, wrapper_settings = load_model(MODEL_PATH)
