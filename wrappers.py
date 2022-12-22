@@ -4,15 +4,16 @@ import numpy as np
 
 
 class TorchWrapperSettings():
-    def __init__(self, normalize=False, flatten_action=False):
+    def __init__(self, normalize=False, flatten_action=False, skip_frames=None):
         self.normalize = normalize
         self.flatten_action = flatten_action
+        self.skip_frames = skip_frames
     def __str__(self) -> str:
         return str(self.get_params())
     def get_params(self):
-        return {"normalize": self.normalize, "flatten_action": self.flatten_action}
+        return {"normalize": self.normalize, "flatten_action": self.flatten_action, "skip_frames": self.skip_frames}
     def from_params(params):
-        return TorchWrapperSettings(params["normalize"], params["flatten_action"])
+        return TorchWrapperSettings(params["normalize"], params["flatten_action"], params["skip_frames"])
     
 class TorchWrapper(gym.Wrapper):
     
@@ -29,6 +30,7 @@ class TorchWrapper(gym.Wrapper):
         self.device = device
         self.normalize = wrapper_settings.normalize
         self.flatten_action = wrapper_settings.flatten_action
+        self.skip_frames = wrapper_settings.skip_frames
         obs, _ = self.env.reset()
         self.obs_shape = obs.shape[0]
         
@@ -61,6 +63,15 @@ class TorchWrapper(gym.Wrapper):
             action = action.squeeze(dim=0).numpy()
             
         obs, reward, done, _, info = self.env.step(action)
+
+        if self.skip_frames is not None:
+            for _ in range(self.skip_frames):
+                if done:
+                    break
+                #action NOOP
+                action = self.env.get_noop_actions()
+                obs, r, done, _, info = self.env.step(action)
+                reward+=r
         obs = self._observation(obs)
         reward = torch.tensor([reward], device=self.device, dtype=torch.float32)
         return obs, reward, done, _, info

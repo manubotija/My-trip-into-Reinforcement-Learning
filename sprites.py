@@ -3,6 +3,11 @@ from pygame.math import Vector2
 import random
 
 
+class Bounds(pygame.Rect):
+    def __init__(self, left, top, width, height):
+        super(Bounds, self).__init__(left, top, width, height)
+    def __hash__(self):
+        return hash((self.left, self.top, self.width, self.height))
 
 class BaseSprite(pygame.sprite.Sprite):
     def __init__(self) -> None:
@@ -19,6 +24,7 @@ class BaseRandomSprite(BaseSprite):
         # and checking there is no collision with other sprites
         self.surf = pygame.Surface(size)
         self.rect = self.surf.get_rect()
+        bounds = bounds
         self.rect.top = random.randint(bounds.top, bounds.bottom-size[1])
         self.rect.left = random.randint(bounds.left, bounds.right-size[0])
         i = 0

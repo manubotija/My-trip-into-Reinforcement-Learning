@@ -4,7 +4,7 @@ import gym
 import math
 from gym import spaces
 import numpy as np
-from sprites import Player, Turret, Obstacle, Projectile, Gate
+from sprites import Player, Turret, Obstacle, Projectile, Gate, Bounds
 
 # Import pygame.locals for easier access to key coordinates
 # Updated to conform to flake8 and black standards
@@ -27,10 +27,10 @@ class GameOptions():
                 max_projectiles_per_turret=5, 
                 fire_turret_step_delay=45,
                 projectile_speed=5,
-                turret_bounds : pygame.Rect = None,
-                obstacle_bounds : pygame.Rect = None,
-                gate_bounds : pygame.Rect = None,
-                player_bounds : pygame.Rect = None,
+                turret_bounds : Bounds = None,
+                obstacle_bounds : Bounds = None,
+                gate_bounds : Bounds = None,
+                player_bounds : Bounds = None,
                 max_steps = 10000,
                 reward_type = 2
                 ) -> None:
@@ -48,19 +48,19 @@ class GameOptions():
         self.reward_type = reward_type
         
         if turret_bounds == None:
-            self.turret_bounds = pygame.Rect(0, 0, width*0.95, height*0.95)
+            self.turret_bounds = Bounds(0, 0, width*0.95, height*0.95)
         else:
             self.turret_bounds = turret_bounds
         if obstacle_bounds == None:
-            self.obstacle_bounds = pygame.Rect(0, 0, width*0.95, height*0.95)
+            self.obstacle_bounds = Bounds(0, 0, width*0.95, height*0.95)
         else:
             self.obstacle_bounds = obstacle_bounds
         if gate_bounds == None:
-            self.gate_bounds = pygame.Rect(0, 0, width*0.95, height*0.95)
+            self.gate_bounds = Bounds(0, 0, width*0.95, height*0.95)
         else:
             self.gate_bounds = gate_bounds
         if player_bounds == None:
-            self.player_bounds = pygame.Rect(0, 0, width*0.95, height*0.95)
+            self.player_bounds = Bounds(0, 0, width*0.95, height*0.95)
         else: 
             self.player_bounds = player_bounds
     
@@ -116,10 +116,10 @@ class GameOptions():
         max_projectiles_per_turret = params["max_projectiles_per_turret"]
         fire_turret_step_delay = params["fire_turret_step_delay"]
         projectile_speed = params["projectile_speed"]
-        turret_bounds = pygame.Rect(params["turret_bounds"]["x"], params["turret_bounds"]["y"], params["turret_bounds"]["width"], params["turret_bounds"]["height"])
-        obstacle_bounds = pygame.Rect(params["obstacle_bounds"]["x"], params["obstacle_bounds"]["y"], params["obstacle_bounds"]["width"], params["obstacle_bounds"]["height"])
-        gate_bounds = pygame.Rect(params["gate_bounds"]["x"], params["gate_bounds"]["y"], params["gate_bounds"]["width"], params["gate_bounds"]["height"])
-        player_bounds = pygame.Rect(params["player_bounds"]["x"], params["player_bounds"]["y"], params["player_bounds"]["width"], params["player_bounds"]["height"])
+        turret_bounds = Bounds(params["turret_bounds"]["x"], params["turret_bounds"]["y"], params["turret_bounds"]["width"], params["turret_bounds"]["height"])
+        obstacle_bounds = Bounds(params["obstacle_bounds"]["x"], params["obstacle_bounds"]["y"], params["obstacle_bounds"]["width"], params["obstacle_bounds"]["height"])
+        gate_bounds = Bounds(params["gate_bounds"]["x"], params["gate_bounds"]["y"], params["gate_bounds"]["width"], params["gate_bounds"]["height"])
+        player_bounds = Bounds(params["player_bounds"]["x"], params["player_bounds"]["y"], params["player_bounds"]["width"], params["player_bounds"]["height"])
         max_steps = params["max_steps"]
         reward_type = params["reward_type"]
         return GameOptions(height, width, n_turrets, n_obstacles, max_projectiles_per_turret, fire_turret_step_delay, projectile_speed, turret_bounds, obstacle_bounds, gate_bounds, player_bounds, max_steps, reward_type)
@@ -265,7 +265,7 @@ class Game(gym.Env):
     
     def get_actions_from_keys(self):
         pressed_keys = pygame.key.get_pressed()
-        actions = np.asarray([2,2,2,2], dtype=np.int32)
+        actions = self.get_noop_actions()
         if pressed_keys[K_UP]:
             actions[0]=0
         if pressed_keys[K_DOWN]:
@@ -275,6 +275,9 @@ class Game(gym.Env):
         if pressed_keys[K_RIGHT]:
             actions[1]=1
         return actions
+
+    def get_noop_actions(self):
+        return np.asarray([2,2], dtype=np.int32)
 
     def _fire_turret(self):
         pygame.event.post(pygame.event.Event(Game.FIRE_TURRET))
@@ -358,6 +361,9 @@ class Game(gym.Env):
                 self.reward += 1 if delta_distance>0 else -1
             # Reward equal to the delta distance compared to the previous step
             else:
+                if delta_distance == 0:
+                    # penalize inmobility
+                    delta_distance =-1
                 self.reward = delta_distance
         
         return done
