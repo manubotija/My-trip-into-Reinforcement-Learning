@@ -2,3 +2,6 @@
 __pycache__/*
 checkpoints/*
 *.mp4
+sb3/*
+table_*
+.vscode/*

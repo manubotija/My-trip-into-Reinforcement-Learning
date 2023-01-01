@@ -85,7 +85,7 @@ plt.ion()
 
 # if gpu is to be used
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+#device = torch.device("mps") if torch.backends.mps.is_available() else device
 
 ######################################################################
 # Replay Memory

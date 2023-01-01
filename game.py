@@ -32,7 +32,9 @@ class GameOptions():
                 gate_bounds : Bounds = None,
                 player_bounds : Bounds = None,
                 max_steps = 10000,
-                reward_type = 2
+                reward_type = 2,
+                instantiate_turrets = True,
+                instantiate_obstacles = True
                 ) -> None:
         
         self.height = height
@@ -46,6 +48,8 @@ class GameOptions():
         self.projectile_speed = projectile_speed
         self.max_steps = max_steps
         self.reward_type = reward_type
+        self.instantiate_turrets = instantiate_turrets
+        self.instantiate_obstacles = instantiate_obstacles
         
         if turret_bounds == None:
             self.turret_bounds = Bounds(0, 0, width*0.95, height*0.95)
@@ -99,7 +103,9 @@ class GameOptions():
                 "height" : self.player_bounds.height
             },
             "max_steps" : self.max_steps,
-            "reward_type" : self.reward_type          
+            "reward_type" : self.reward_type,
+            "instantiate_turrets" : self.instantiate_turrets,
+            "instantiate_obstacles" : self.instantiate_obstacles
         }
 
     def __str__(self):
@@ -122,7 +128,9 @@ class GameOptions():
         player_bounds = Bounds(params["player_bounds"]["x"], params["player_bounds"]["y"], params["player_bounds"]["width"], params["player_bounds"]["height"])
         max_steps = params["max_steps"]
         reward_type = params["reward_type"]
-        return GameOptions(height, width, n_turrets, n_obstacles, max_projectiles_per_turret, fire_turret_step_delay, projectile_speed, turret_bounds, obstacle_bounds, gate_bounds, player_bounds, max_steps, reward_type)
+        instantiate_turrets = params["instantiate_turrets"]
+        instantiate_obstacles = params["instantiate_obstacles"]
+        return GameOptions(height, width, n_turrets, n_obstacles, max_projectiles_per_turret, fire_turret_step_delay, projectile_speed, turret_bounds, obstacle_bounds, gate_bounds, player_bounds, max_steps, reward_type, instantiate_turrets, instantiate_obstacles)
 
 class Game(gym.Env):
     metadata = {'render.modes': ['human', 'rgb_array'], "default_render_fps": 60, "reward.type": [1,2,3,4,5]}
@@ -144,28 +152,14 @@ class Game(gym.Env):
         self.action_space = spaces.MultiDiscrete([2, 3])
 
         max_coordinate = max(self.options.width, self.options.height)
+        N_COORD = 4
         self.observation_space = spaces.Dict({
-            "player" : spaces.Dict({
-                "center" : spaces.Box(low=0, high=max_coordinate, shape=(2,), dtype=np.int32),
-                # "size" : spaces.Box(low=0, high=max_coordinate, shape=(2,), dtype=np.int32)
-            }),
-            "turrets" : spaces.Dict({
-                "centers" : spaces.Box(low=0, high=max_coordinate, shape=(self.options.n_turrets*2,), dtype=np.int32),
-                #"sizes" :   spaces.Box(low=0, high=max_coordinate, shape=(self.options.n_turrets*2,), dtype=np.int32),
-            }),
-            "obstacles" : spaces.Dict({
-                "centers" : spaces.Box(low=0, high=max_coordinate, shape=(self.options.n_obstacles*2,), dtype=np.int32),
-                #"sizes" :   spaces.Box(low=0, high=max_coordinate, shape=(self.options.n_obstacles*2,), dtype=np.int32),
-            }),
-            "gate" : spaces.Dict({
-                "center" : spaces.Box(low=0, high=max_coordinate, shape=(2,), dtype=np.int32),
-                # "size" : spaces.Box(low=0, high=max_coordinate, shape=(2,), dtype=np.int32)
-            }),
-            "projectiles" : spaces.Dict({
-                "centers" : spaces.Box(low=0, high=max_coordinate, shape=(self.options.n_turrets*self.options.max_projectiles_per_turret*2,), dtype=np.int32),
-                #"sizes" :   spaces.Box(low=0, high=max_coordinate, shape=(self.options.n_turrets*self.options.max_projectiles_per_turret, 2), dtype=np.int32),
-            }),
-            "step" : spaces.Box(low=0, high=self.options.max_steps, shape=(1,), dtype=np.int32)
+            "a.player" : spaces.Box(low=0, high=max_coordinate, shape=(N_COORD,), dtype=np.int32),
+            "d.turrets" : spaces.Box(low=0, high=max_coordinate, shape=(self.options.n_turrets*N_COORD,), dtype=np.int32),
+            "c.obstacles" : spaces.Box(low=0, high=max_coordinate, shape=(self.options.n_obstacles*N_COORD,), dtype=np.int32),
+            "b.gate" : spaces.Box(low=0, high=max_coordinate, shape=(N_COORD,), dtype=np.int32),
+            "e.projectiles" : spaces.Box(low=0, high=max_coordinate, shape=(self.options.n_turrets*self.options.max_projectiles_per_turret*N_COORD,), dtype=np.int32),
+            # "z.step" : spaces.Box(low=0, high=self.options.max_steps, shape=(1,), dtype=np.int32) # calling it zstep so that flatten wrapper puts it last
         })
         
         assert render_mode is None or render_mode in Game.metadata["render.modes"]
@@ -189,14 +183,16 @@ class Game(gym.Env):
         self.turrets = pygame.sprite.Group()
         self.obstacles = pygame.sprite.Group()
         self.turrets_and_obstacles = pygame.sprite.Group()
-        for _ in range(self.options.n_turrets):
-            t = Turret(self.options, self.all_sprites)
-            self.turrets.add(t)
-            self.all_sprites.add(t)
-        for _ in range(self.options.n_obstacles):
-            o = Obstacle(self.options, self.all_sprites)
-            self.obstacles.add(o)
-            self.all_sprites.add(o)
+        if self.options.instantiate_turrets:
+            for _ in range(self.options.n_turrets):
+                t = Turret(self.options, self.all_sprites)
+                self.turrets.add(t)
+                self.all_sprites.add(t)
+        if self.options.instantiate_obstacles:
+            for _ in range(self.options.n_obstacles):
+                o = Obstacle(self.options, self.all_sprites)
+                self.obstacles.add(o)
+                self.all_sprites.add(o)
 
         self.turrets_and_obstacles.add(self.turrets)
         self.turrets_and_obstacles.add(self.obstacles)
@@ -228,39 +224,45 @@ class Game(gym.Env):
         return {"score": self.score}
 
     def _get_obs(self):
+        # for each object return top left and bottom right coordinates
         return {
-            "player" : {
-                "center" : np.asarray(self.player.rect.center, dtype=np.int32),
-                # "size" : np.asarray(self.player.rect.size, dtype=np.int32)
-            },
-            "turrets" : {
-                "centers" : np.asarray([turret.rect.center for turret in self.turrets], dtype=np.int32).flatten(),
-                #"sizes" : np.asarray([turret.rect.size for turret in self.turrets], dtype=np.int32).flatten()
-            },
-            "obstacles" : {
-                "centers" : np.asarray([obstacle.rect.center for obstacle in self.obstacles], dtype=np.int32).flatten(),
-                #"sizes" : np.asarray([obstacle.rect.size for obstacle in self.obstacles], dtype=np.int32).flatten()
-            },
-            "gate" : {
-                "center" : np.asarray(self.gate.rect.center, dtype=np.int32),
-                # "size" : np.asarray(self.gate.rect.size, dtype=np.int32)
-            },
-            "projectiles" : self._get_projectiles(),
-            "step" : self.step_count
+            "a.player" : np.asarray([self.player.rect.top, self.player.rect.left, self.player.rect.bottom, self.player.rect.right], dtype=np.int32).flatten(),
+            "d.turrets" : self._get_turrets_obs(),
+            "c.obstacles" : self._get_obstacles_obs(),
+            "b.gate" : np.asarray([self.gate.rect.top, self.gate.rect.left, self.gate.rect.bottom, self.gate.rect.right], dtype=np.int32).flatten(),
+            "e.projectiles" : self._get_projectiles_obs(),
+            # "z.step" : np.asarray([self.step_count+1], dtype=np.int32)
         }
 
-    # function that returns Dict containing centers and sizes for all projectiles. 
+    def _get_turrets_obs(self):
+        # function that returns top left and bottom right coordinates of all turrets
+        # If less than N_TURRETS, then fill with zeros
+        turrets = []
+        for turret in self.turrets:
+            turrets.append(turret)
+        for _ in range(self.options.n_turrets - len(turrets)):
+            turrets.append(Turret(self.options,[], dummy=True))
+        return np.asarray([[turret.rect.top, turret.rect.left, turret.rect.bottom, turret.rect.right] for turret in turrets], dtype=np.int32).flatten()
+
+    def _get_obstacles_obs(self):
+        # function that returns top left and bottom right coordinates of all obstacles
+        # If less than N_OBSTACLES, then fill with zeros
+        obstacles = []
+        for obstacle in self.obstacles:
+            obstacles.append(obstacle)
+        for _ in range(self.options.n_obstacles - len(obstacles)):
+            obstacles.append(Obstacle(self.options,[], dummy=True))
+        return np.asarray([[obstacle.rect.top, obstacle.rect.left, obstacle.rect.bottom, obstacle.rect.right] for obstacle in obstacles], dtype=np.int32).flatten()
+
+    # function that returns top left and bottom right coordinates of all projectiles
     # If less than MAX_PROJECTILES_PER_TURRET * N_TURRETS, then fill with zeros
-    def _get_projectiles(self):
+    def _get_projectiles_obs(self):
         projectiles = []
         for projectile in self.all_projectiles:
             projectiles.append(projectile)
         for _ in range(self.options.max_projectiles_per_turret * self.options.n_turrets - len(projectiles)):
-            projectiles.append(Projectile(0,0, self.options))
-        return {            
-                "centers" : np.asarray([projectile.rect.center for projectile in projectiles], dtype=np.int32).flatten(),
-                #"sizes" : np.asarray([projectile.rect.size for projectile in projectiles], dtype=np.int32)
-            }
+            projectiles.append(Projectile(0,0, self.options, dummy=True))
+        return np.asarray([[projectile.rect.top, projectile.rect.left, projectile.rect.bottom, projectile.rect.right] for projectile in projectiles], dtype=np.int32).flatten()
         
     
     def get_actions_from_keys(self):
@@ -281,7 +283,6 @@ class Game(gym.Env):
 
     def _fire_turret(self):
         pygame.event.post(pygame.event.Event(Game.FIRE_TURRET))
-        pass
 
     def process_events(self):
         for event in pygame.event.get():
@@ -297,7 +298,8 @@ class Game(gym.Env):
             elif event.type == Game.FIRE_TURRET:
                     for t in self.turrets:
                         if len(self.all_projectiles) < self.options.max_projectiles_per_turret * self.options.n_turrets:
-                            t.fire(self.player.rect, self.player.motion_vector)
+                            projectile = t.fire(self.player.rect, self.player.motion_vector)
+                            self.all_projectiles.add(projectile)
 
     def step(self, actions):
 
@@ -310,10 +312,9 @@ class Game(gym.Env):
             if self.step_count % self.options.fire_turret_step_delay == 0:
                 self._fire_turret()
         
-        self.player.update(actions, self.turrets_and_obstacles)
+        self.collision = self.player.update(actions, self.turrets_and_obstacles)
         for t in self.turrets: t.update(self.obstacles)
-        for t in self.turrets: 
-            self.all_projectiles.add(t.projectiles)
+
         self.all_sprites.add(self.all_projectiles)
         
         done = False
@@ -334,20 +335,23 @@ class Game(gym.Env):
         if pygame.sprite.spritecollideany(self.player, self.all_projectiles):
             self.player.kill()
             done = True
-            self.reward += -100
+            self.reward = -100
         # End condition 2: Player reaches the gate
         elif pygame.sprite.spritecollideany(self.player, [self.gate]):
             done = True
-            self.reward += 100
+            self.reward = 500
             # If the player gets to the gate in less than X steps, then give a bonus. 
-            if self.reward_type == 4 & self.step_count < self.min_steps*1.2:
-                self.reward += 100
+            if self.reward_type in [4,5] and self.step_count < self.min_steps*1.2:
+                self.reward = 100
         # End condition 3: Player does not reach the gate in less than max_steps
         elif self.step_count >= self.options.max_steps-1:
             done = True
             # If the player does not reach the gate in less than max_steps steps, then give a penalty.
             if self.reward_type == 5:
-                self.reward += -100
+                self.reward = -100
+        # Penalize hitting obstacles or turrets
+        elif self.collision:
+            self.reward = -3
         # Reward for getting closer to the gate
         else:
             delta_distance = self.prev_distance_to_gate - self._player_distance_to_gate()
@@ -357,14 +361,11 @@ class Game(gym.Env):
                 self.reward = 1/(self._normalized_player_distance_to_gate()**2)
                 self.reward = int(self.reward)
             # Binary reward if player gets closer to the gate, penalty if it does not
-            elif self.reward_type == 2:
-                self.reward += 1 if delta_distance>0 else -1
+            elif self.reward_type in [2]:
+                self.reward = 1 if delta_distance>0 else -1
             # Reward equal to the delta distance compared to the previous step
-            else:
-                if delta_distance == 0:
-                    # penalize inmobility
-                    delta_distance =-1
-                self.reward = delta_distance
+            elif self.reward_type in [3,4]:
+                self.reward = delta_distance/10
         
         return done
 

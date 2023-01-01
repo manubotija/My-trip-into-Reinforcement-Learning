@@ -67,7 +67,7 @@ GAMMA = 0.95
 EPS_START = 0.9
 EPS_END = 0.05
 EPS_DECAY = 4000 # The higher the longer it takes to decay
-PARAM_UPDATE_RATE = 0.01
+TAU = 0.01
 LR = 0.001
 
 class HyperParams():
@@ -75,7 +75,7 @@ class HyperParams():
                 memory_size=MEM_SIZE, 
                 batch_size=BATCH_SIZE, 
                 gamma=GAMMA, 
-                tau=PARAM_UPDATE_RATE,
+                tau=TAU,
                 eps_start=EPS_START,
                 eps_end=EPS_END,
                 eps_decay=EPS_DECAY,

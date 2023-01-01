@@ -13,8 +13,10 @@ import sys
 import pandas as pd
 import copy
 
-# if gpu is to be used
+# if gpu is to be used. mps is MAC GPU
+print(torch.__version__)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# device = torch.device("mps") if torch.backends.mps.is_available() else device
 
 def run_training(options, model_class, wrapper_settings, hyperparams=None, model_weights=None):
     env = TorchWrapper(Game(  render_mode=None, 
@@ -22,11 +24,12 @@ def run_training(options, model_class, wrapper_settings, hyperparams=None, model
                                                 render_fps=1000,
                                                 ), device=device, 
                                                 wrapper_settings=wrapper_settings) 
-    eval_env = TorchWrapper(Game(  render_mode=None, 
-                                                options=options, 
-                                                render_fps=1000,
-                                                ), device=device,
-                                                wrapper_settings=wrapper_settings) 
+    # eval_env = TorchWrapper(Game(  render_mode=None, 
+    #                                             options=options, 
+    #                                             render_fps=1000,
+    #                                             ), device=device,
+    #                                             wrapper_settings=wrapper_settings) 
+    eval_env = None
 
     obs_shape, num_actions_act, action_shape = env.get_shapes()
 
@@ -55,7 +58,7 @@ def run_training(options, model_class, wrapper_settings, hyperparams=None, model
                         final_plot=False)
     
     durations, rewards, success, loss, average_score, speed = agent.do_train(
-                                                        num_episodes = 500,
+                                                        num_episodes = 400,
                                                         target_avg_score=100000)
     
 
@@ -111,16 +114,21 @@ def print_reduced_table(table):
             reduced_table = reduced_table.drop(col, axis=1)
     print(reduced_table)
 
+def save_table(table):
+    """saves the table as a csv file with current date in name"""
+    name = "table_" + time.strftime("%Y%m%d-%H%M%S")
+    table.to_csv(name + ".csv")
 
 def hyperparameter_search(options, hyperParams, wrapper_settings):
 
     max_tries_per_config = 1
     table = _init_table(hyperParams, options, wrapper_settings)
 
-    for option in get_next_hyperparameter(options):
-        for hyper_param in get_next_hyperparameter(hyperParams):
-            for wrapper_setting in get_next_hyperparameter(wrapper_settings):
+    for option, n_opt, total_opt in get_next_hyperparameter(options):
+        for hyper_param, n_hyper, total_hyper in get_next_hyperparameter(hyperParams):
+            for wrapper_setting, n_wraps, total_wraps in get_next_hyperparameter(wrapper_settings):
                 for i in range(max_tries_per_config):
+                    print(n_opt, "/", total_opt, " game options. ", n_hyper, "/", total_hyper, "hyperparamss ", n_wraps, "/", total_wraps, "wrapper settings. Trial ", i+1, "/", max_tries_per_config)
                     save_path, success, average_score, avg_speed = run_training(
                                                                 option,
                                                                 SimpleLinearModel,
@@ -128,16 +136,18 @@ def hyperparameter_search(options, hyperParams, wrapper_settings):
                                                                 hyper_param)
 
                     table = _add_to_table(table, hyper_param, option, wrapper_setting, average_score, avg_speed, save_path, success)
-                    print(table)
+                    print_reduced_table(table)
 
-                    if success: 
-                        print("=====Success! ======")
-                        print_reduced_table(table)
-                        return
+                    # if success: 
+                    #     print("=====Success! ======")
+                    #     print_reduced_table(table)
+                    #     save_table(table)
+                    #     return
 
     print("==============================================")
     print("Search complete. Result summary: ")
     print_reduced_table(table)
+    save_table(table)
     print("==============================================")
     return
 
@@ -167,19 +177,21 @@ def get_next_hyperparameter(input_set):
         output_set.remove(set)
     
     print("Number of configs found for ", input_set.__class__ ,", : ", len(output_set))
+    n = 0
     for set in output_set:
-        yield set
+        n+=1
+        yield set, n, len(output_set)
 
 wrapper_settings = TorchWrapperSettings(
-                        normalize=[True, False], 
+                        normalize=True, 
                         flatten_action=True,
-                        skip_frames=[None, 1,2, 3])
+                        skip_frames=None)
 
 
 hyperParams = HyperParams(
                         memory_size=10000, 
-                        batch_size=[128,256], 
-                        gamma=[0.95,0.99], 
+                        batch_size=128, 
+                        gamma=0.95, 
                         tau=0.005,
                         eps_start=0.95,
                         eps_end=0.05,
@@ -188,8 +200,8 @@ hyperParams = HyperParams(
                         )
 
 options = GameOptions()
-options.max_steps = [300,500]
+options.max_steps = 300
 options.max_projectiles_per_turret = 0
-options.reward_type = [4,5]
+options.reward_type = 4
 
 hyperparameter_search(options, hyperParams, wrapper_settings)

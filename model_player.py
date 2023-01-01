@@ -41,7 +41,7 @@ class ModelPlayer:
                     self._save_frame(frame)
                 if done:
                     print("Episode: {}/{} Duration: {}. Score: {}".format(i_episode, num_episodes, t + 1, info["score"]), end="\r", flush=True)
-                    if reward > 0:
+                    if reward >= 100:
                         successful_count += 1
                     step_counter.append(t+1)
                     self.game.reset()
@@ -62,7 +62,8 @@ class ModelPlayer:
         
 
 
-MODEL_PATH = "checkpoints/20221221-120020"
+# MODEL_PATH = "checkpoints/20221223-113034"
+MODEL_PATH = "checkpoints/20221229-180150"
 
 plot_model_training_history(MODEL_PATH)
 policy_model, target_model, options, wrapper_settings = load_model(MODEL_PATH)
@@ -70,13 +71,13 @@ options = GameOptions.from_params(options)
 
 
 
-env = TorchWrapper(Game(render_mode="rgb_array", options=options, render_fps=120), wrapper_settings=TorchWrapperSettings.from_params(wrapper_settings), device=device)
+env = TorchWrapper(Game(render_mode="human", options=options, render_fps=120), wrapper_settings=TorchWrapperSettings.from_params(wrapper_settings), device=device)
 # model_class is a str get actual class
 obs_shape, num_actions_act, action_shape = env.get_shapes()
 
-summary(policy_model, input_size=(1, obs_shape), device=device.type)
+#summary(policy_model, input_size=(1, obs_shape), device=device.type)
 
-player = ModelPlayer(policy_model, env, device, action_shape, save_video=True)
+player = ModelPlayer(policy_model, env, device, action_shape, save_video=False)
 player.play(num_episodes=100)
 
 player = ModelPlayer(target_model, env, device, action_shape)

@@ -18,13 +18,20 @@ class BaseSprite(pygame.sprite.Sprite):
 
 class BaseRandomSprite(BaseSprite):
     
-    def __init__(self, size, bounds, other_sprites) -> None:
+    def __init__(self, size, bounds, other_sprites, dummy=False) -> None:
         super(BaseRandomSprite, self).__init__()
         # initialize randomly the location of the sprite within the bounds
         # and checking there is no collision with other sprites
+        if dummy:
+            self.surf = pygame.Surface((0,0))
+            self.rect = self.surf.get_rect()
+            self.rect.top = 0
+            self.rect.left = 0
+            return
+        
         self.surf = pygame.Surface(size)
         self.rect = self.surf.get_rect()
-        bounds = bounds
+
         self.rect.top = random.randint(bounds.top, bounds.bottom-size[1])
         self.rect.left = random.randint(bounds.left, bounds.right-size[0])
         i = 0
@@ -40,8 +47,8 @@ PLAYER_SIZE = (25,25)
 PLAYER_COLOR = (255, 255, 255)
 
 class Player(BaseRandomSprite):
-    def __init__(self, options, other_sprites):
-        super(Player, self).__init__(PLAYER_SIZE, options.player_bounds, other_sprites)
+    def __init__(self, options, other_sprites, **kwargs):
+        super(Player, self).__init__(PLAYER_SIZE, options.player_bounds, other_sprites, **kwargs)
         self.options = options
         self.surf.fill(PLAYER_COLOR)
         self.motion_vector = Vector2(0,0)
@@ -49,6 +56,7 @@ class Player(BaseRandomSprite):
 
     def update(self, actions, obstacles):
         prev_pos= self.rect.center
+        collision = False
         if actions[0] == 0:
             self.rect.move_ip(0, -self.speed)
         if actions[0] == 1:
@@ -60,6 +68,7 @@ class Player(BaseRandomSprite):
 
         if pygame.sprite.spritecollideany(self, obstacles):
             self.rect.center = prev_pos
+            collision = True
     
         self.motion_vector = Vector2(self.rect.center) - Vector2(prev_pos)
                     
@@ -73,14 +82,16 @@ class Player(BaseRandomSprite):
         if self.rect.bottom >= self.options.height:
             self.rect.bottom = self.options.height
 
+        return collision
+
 def normalized_vector (point_a, point_b):
     return (Vector2(point_b)-Vector2(point_a)).normalize()
 
 TURRET_SIZE = (15,15)
 TURRET_COLOR = (0, 255, 255)
 class Turret(BaseRandomSprite):
-    def __init__(self, options, all_turrets):
-        super(Turret, self).__init__(TURRET_SIZE, options.turret_bounds, all_turrets)
+    def __init__(self, options, all_turrets, **kwargs):
+        super(Turret, self).__init__(TURRET_SIZE, options.turret_bounds, all_turrets, **kwargs)
         self.options = options
         pygame.draw.circle(self.surf, TURRET_COLOR,self.surf.get_rect().center, TURRET_SIZE[0]/2)
         self.projectiles = pygame.sprite.Group()
@@ -89,6 +100,7 @@ class Turret(BaseRandomSprite):
         direction = normalized_vector(self.rect.center, Vector2(target.center)+target_motion_vector)
         p = Projectile(self.rect.top, self.rect.left, self.options, direction)
         self.projectiles.add(p)
+        return p
 
     def update(self, obstacles):
         for p in self.projectiles:
@@ -109,10 +121,14 @@ class Projectile(BaseSprite):
                 init_top, 
                 init_left, 
                 options, 
-                direction=(0,3)):
+                direction=(0,0),
+                dummy=False,):
         super(Projectile, self).__init__()
         self.options = options
-        self.surf = pygame.Surface(PROJECTILE_SIZE)
+        if dummy:
+            self.surf = pygame.Surface((0,0))
+        else:
+            self.surf = pygame.Surface(PROJECTILE_SIZE)
         self.surf.fill(PROJECTILE_COLOR)
         self.pos = (init_left, init_top)
         self.rect = self.surf.get_rect()
@@ -135,8 +151,8 @@ OBSTACLE_SIZE = (45,45)
 OBSTACLE_COLOR = (0, 255, 0)
 class Obstacle(BaseRandomSprite):
     def __init__(self, 
-                options, all_obstacles):
-        super(Obstacle, self).__init__(OBSTACLE_SIZE, options.obstacle_bounds, all_obstacles)
+                options, all_obstacles, **kwargs):
+        super(Obstacle, self).__init__(OBSTACLE_SIZE, options.obstacle_bounds, all_obstacles, **kwargs)
         self.options = options
         surf_rect = self.surf.get_rect()
         pygame.draw.polygon(self.surf, OBSTACLE_COLOR,[
