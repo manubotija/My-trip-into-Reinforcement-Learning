@@ -7,7 +7,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 from collections import namedtuple, deque
 from itertools import count
-from wrappers import TorchWrapper
+from wrappers import GameWrapper
 
 import torch
 import torch.nn as nn
@@ -54,7 +54,7 @@ elif gym.__version__[:4] == '0.25':
     state, _ = env.reset(return_info=True)
 n_observations = len(state)
 
-env = TorchWrapper(env, normalize=False)
+env = GameWrapper(env, normalize=False)
 eval_env = None
 
 policy_model = SimpleLinearModel(n_observations, n_actions).to(device)

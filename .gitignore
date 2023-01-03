@@ -5,3 +5,11 @@ checkpoints/*
 sb3/*
 table_*
 .vscode/*
+tensorboard/*
+*.sqlite3
+modelzoo/*
+opt-logs/*
+opt-tb/*
+eval_logs/*
+temp/*
+.DS_Store

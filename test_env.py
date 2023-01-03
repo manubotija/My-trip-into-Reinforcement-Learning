@@ -1,6 +1,7 @@
 from game import Game, GameOptions
 from gym.utils.env_checker import check_env
 import numpy as np
+from wrappers import *
 
 def run_env(env, num_episodes=100, render=False):
     for episode in range(num_episodes):
@@ -36,5 +37,11 @@ def test_env_no_instantiated_turr_and_obstacles():
     options.instantiate_obstacles = False
     options.instantiate_turrets = False
     env = Game(render_mode=None, options=options)
+    check_env(env)
+    run_env(env, num_episodes=10, render=False)
+
+def test_wrapped_env():
+    env = Game(render_mode=None, render_fps=60)
+    env = GameWrapper(env, wrapper_settings=GameWrapperSettings(normalize=True, flatten_action=True, to_tensor=False))
     check_env(env)
     run_env(env, num_episodes=10, render=False)

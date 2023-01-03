@@ -5,6 +5,10 @@ torchvision
 torchaudio
 pytest
 matplotlib
-torchinfo
-pandas
-torchrl
+# torchinfo
+# pandas
+tensorboard
+rich
+tqdm
+optuna
+optuna-dashboard

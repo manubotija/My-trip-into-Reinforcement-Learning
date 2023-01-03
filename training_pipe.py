@@ -1,7 +1,7 @@
 
 from models import *
 from game import Game, GameOptions
-from wrappers import TorchWrapper, TorchWrapperSettings
+from wrappers import GameWrapper, GameWrapperSettings
 from gym.wrappers import FlattenObservation
 from agent import Agent, HyperParams
 import numpy as np
@@ -19,7 +19,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # device = torch.device("mps") if torch.backends.mps.is_available() else device
 
 def run_training(options, model_class, wrapper_settings, hyperparams=None, model_weights=None):
-    env = TorchWrapper(Game(  render_mode=None, 
+    env = GameWrapper(Game(  render_mode=None, 
                                                 options=options, 
                                                 render_fps=1000,
                                                 ), device=device, 
@@ -182,7 +182,7 @@ def get_next_hyperparameter(input_set):
         n+=1
         yield set, n, len(output_set)
 
-wrapper_settings = TorchWrapperSettings(
+wrapper_settings = GameWrapperSettings(
                         normalize=True, 
                         flatten_action=True,
                         skip_frames=None)

@@ -4,12 +4,18 @@ import gym
 
 import stable_baselines3 as sb3
 from stable_baselines3 import PPO, DQN, SAC
+from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor
+from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.dqn.policies import MlpPolicy
 from stable_baselines3.common.env_checker import check_env
+from stable_baselines3.common.callbacks import EvalCallback
 from gym.utils.env_checker import check_env as gym_check_env
 from game import Game, GameOptions
 from wrappers import *
 import datetime
+from sprites import Bounds
+import imageio
+from evaluate import evaluate, create_env
 
 MEM_SIZE = 10_000
 BATCH_SIZE = 128
@@ -40,7 +46,8 @@ def get_DQN_model(env):
                     # learning_starts=BATCH_SIZE,
                     # target_update_interval=1,
                     # gradient_steps=-1,
-                    policy_kwargs=policy_kwargs
+                    policy_kwargs=policy_kwargs,
+                    tensorboard_log="./tensorboard/"
                     )
   return model
 
@@ -48,7 +55,7 @@ def get_PPO_model(env):
   
   policy_kwargs = dict(   
                       # activation_fn=torch.nn.ReLU, 
-                      net_arch=[dict(pi=[256, 256], vf=[256, 256])],
+                      net_arch=[dict(pi=[64, 64], vf=[64, 64])],
                       # optimizer_class = torch.optim.AdamW, 
                       # optimizer_kwargs = dict(amsgrad=True),
                       # normalize_images=False
@@ -56,56 +63,42 @@ def get_PPO_model(env):
   model = PPO("MlpPolicy", env, verbose=1,
                     # learning_rate=LR, 
                     # gamma=GAMMA, 
-                    policy_kwargs=policy_kwargs
+                    gae_lambda=0.99,
+                    policy_kwargs=policy_kwargs,
+                    tensorboard_log="./tensorboard/"
                     )
   return model
 
-options = GameOptions()
-options.max_steps = 300
-options.max_projectiles_per_turret = 0
-options.instantiate_obstacles = False
-options.instantiate_turrets = False
-options.reward_type = 4
+if __name__ == '__main__':
 
+  options = GameOptions()
+  options.max_steps = 300
+  options.max_projectiles_per_turret = 0
+  options.instantiate_obstacles = True
+  options.instantiate_turrets = True
+  # options.player_bounds = Bounds(130,250, 40, 50)
+  # options.gate_bounds = Bounds(120,0, 60, 60)
 
+  settings = GameWrapperSettings(normalize=True, flatten_action=True, skip_frames=None, to_tensor=False)
 
-env = Game(render_mode=None, options=options)
-gym_check_env(env)
-settings = TorchWrapperSettings(normalize=True, flatten_action=True, skip_frames=None, to_tensor=False)
-env = TorchWrapper(env, wrapper_settings = settings)
-gym_check_env(env)
-check_env(env, warn=True)
+  env = create_env(options, settings, vectorized=True, monitor=True, render_mode=None)
+  eval_env = create_env(options, settings, vectorized=False, monitor=True, render_mode=None)
+  model = get_PPO_model(env)
 
-model = get_PPO_model(env)
-# model.learn(total_timesteps=200_000, progress_bar=True)
-# model.save("sb3/dqn_baseline")
-# quit()
-# input("Press Enter to continue...")
+  RUN_NAME = "PP0_new_rewards_inst_coll-3"
+  logs_path = "./eval_logs/{}".format(RUN_NAME)
+  eval_callback = EvalCallback(eval_env, best_model_save_path=logs_path,
+                              log_path=logs_path, eval_freq=50_000, n_eval_episodes=100,
+                              deterministic=False, render=False)
 
-# model = DQN.load("sb3/dqn_baseline", env=env)
+  model.learn(total_timesteps=1_000_000, progress_bar=True, callback=eval_callback, tb_log_name=RUN_NAME)
+  env.close()
+  eval_env.close()
 
-env.options.instantiate_obstacles = True
-env.options.instantiate_turrets = True
-env.options.reward_type = 4
+  print("Eval last mean reward: {:.2f}".format(eval_callback.last_mean_reward))
+  print("Eval best mean reward: {:.2f}".format(eval_callback.best_mean_reward))
 
-model.learn(total_timesteps=1_000_000, progress_bar=True)
-
-
-# # #save model with current date
-model.save("sb3/model_{}".format(datetime.datetime.now().strftime("%Y%m%d-%H%M%S")))
-# model = PPO.load("sb3/model_20230101-225453", env=env)
-input = input("Press Enter to continue...")
-#if input is p, continue, else quite
-if input == "p":
-    env = Game(render_mode="human", options=options)
-    env = TorchWrapper(env, wrapper_settings = settings)
-    obs, _ = env.reset()
-    for i in range(2000):
-        action, _states = model.predict(obs, deterministic=True)
-        obs, reward, done, _, info = env.step(action)
-        env.render()
-        # VecEnv resets automatically
-        if done:
-          obs, _ = env.reset()
-
-    env.close()
+  evaluate(model, options, settings, deterministic=True, n_episodes=10, save_gif=True)
+  evaluate(model, options, settings, deterministic=False, n_episodes=10, save_gif=True)
+  evaluate(model, options, settings, deterministic=True, n_episodes=1000, save_gif=False)
+  evaluate(model, options, settings, deterministic=False, n_episodes=1000, save_gif=False)

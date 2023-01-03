@@ -1,6 +1,6 @@
 
 from game import Game, GameOptions
-from wrappers import TorchWrapper, TorchWrapperSettings
+from wrappers import GameWrapper, GameWrapperSettings
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
@@ -14,8 +14,8 @@ options = GameOptions(
     instantiate_turrets=False
 )
 env = Game(render_mode=None, options=options)
-settings = TorchWrapperSettings(normalize=True, to_tensor=False, flatten_action=True)
-env = TorchWrapper(env, device='cpu', wrapper_settings=settings)
+settings = GameWrapperSettings(normalize=True, to_tensor=False, flatten_action=True)
+env = GameWrapper(env, device='cpu', wrapper_settings=settings)
 
 print (env.observation_space)
 

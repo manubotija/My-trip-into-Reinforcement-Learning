@@ -3,8 +3,8 @@ import gym
 import numpy as np
 
 
-class TorchWrapperSettings():
-    def __init__(self, normalize=False, flatten_action=False, skip_frames=None, to_tensor=True):
+class GameWrapperSettings():
+    def __init__(self, normalize=True, flatten_action=True, skip_frames=None, to_tensor=None):
         self.normalize = normalize
         self.flatten_action = flatten_action
         self.skip_frames = skip_frames
@@ -14,21 +14,25 @@ class TorchWrapperSettings():
     def get_params(self):
         return self.__dict__
     def from_params(params):
-        settings = TorchWrapperSettings()
+        settings = GameWrapperSettings()
         settings.__dict__.update(params)
         return settings
     
-class TorchWrapper(gym.Wrapper):
+class GameWrapper(gym.Wrapper):
     """
-    This class provides a wrapper for the environment to be used with pytorch:
-    - Flattens and normalizes the observations to be between 0 and 1
-    - Converts the observation to a torch tensor
-    - Converts the action to a numpy array for the environment
-    - Converts the reward to a torch tensor
+    This class provides a wrapper for the environment with multiple (optional) functions:
+    - Flattens the observation
+    - Normalize the observations to be between -1 and 1
+    - Convert the observation to a torch tensor
+    - Convert the action from tensor to a numpy array for the environment
+    - Convert the reward to a torch tensor
+    - Skip frames
+    - Insert a time limit
     """
-    def __init__(self, env, device="cpu", wrapper_settings=TorchWrapperSettings()):
+    def __init__(self, env, device="cpu", wrapper_settings=GameWrapperSettings()):
         env = gym.wrappers.FlattenObservation(env)
-        super(TorchWrapper, self).__init__(env)
+        env = gym.wrappers.TimeLimit(env, max_episode_steps=env.options.max_steps)
+        super(GameWrapper, self).__init__(env)
         self.device = device
         self.normalize = wrapper_settings.normalize
         self.flatten_action = wrapper_settings.flatten_action
@@ -44,13 +48,13 @@ class TorchWrapper(gym.Wrapper):
 
         if self.normalize:
             self.original_observation_space = self.observation_space
-            self.observation_space = gym.spaces.Box(low=0, high=1, shape=self.observation_space.shape, dtype=np.float32)
+            self.observation_space = gym.spaces.Box(low=-1, high=1, shape=self.observation_space.shape, dtype=np.float32)
 
     def _observation(self, obs):
         if self.normalize:
             obs = obs.astype(np.float32)
-            #normalize it to be between 0 and 1 using the max value defined in the observation space
-            obs = (obs/self.original_observation_space.high).astype(np.float32)
+            #normalize it to be between -1 and 1 using the max value defined in the observation space
+            obs = (obs/(self.original_observation_space.high/2) - 1).astype(np.float32)
         if self.to_tensor:
             #convert to torch tensor
             obs = torch.from_numpy(obs).to(self.device, dtype=torch.float32).unsqueeze(dim=0)

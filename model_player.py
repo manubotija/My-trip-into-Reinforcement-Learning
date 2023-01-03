@@ -1,7 +1,7 @@
 import torch
 from itertools import count
 from game import Game, GameOptions
-from wrappers import TorchWrapper, TorchWrapperSettings
+from wrappers import GameWrapper, GameWrapperSettings
 import numpy as np
 from models import *
 from torchinfo import summary
@@ -71,7 +71,7 @@ options = GameOptions.from_params(options)
 
 
 
-env = TorchWrapper(Game(render_mode="human", options=options, render_fps=120), wrapper_settings=TorchWrapperSettings.from_params(wrapper_settings), device=device)
+env = GameWrapper(Game(render_mode="human", options=options, render_fps=120), wrapper_settings=GameWrapperSettings.from_params(wrapper_settings), device=device)
 # model_class is a str get actual class
 obs_shape, num_actions_act, action_shape = env.get_shapes()
 

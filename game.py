@@ -133,7 +133,7 @@ class GameOptions():
         return GameOptions(height, width, n_turrets, n_obstacles, max_projectiles_per_turret, fire_turret_step_delay, projectile_speed, turret_bounds, obstacle_bounds, gate_bounds, player_bounds, max_steps, reward_type, instantiate_turrets, instantiate_obstacles)
 
 class Game(gym.Env):
-    metadata = {'render.modes': ['human', 'rgb_array'], "default_render_fps": 60, "reward.type": [1,2,3,4,5]}
+    metadata = {'render.modes': ['human', 'rgb_array'], "default_render_fps": 60}
     FIRE_TURRET = pygame.USEREVENT + 1
 
     def __init__(self, render_mode=None, render_fps=None, options=None) -> None:
@@ -166,8 +166,6 @@ class Game(gym.Env):
         self.render_fps = render_fps if render_fps else Game.metadata["default_render_fps"]
         self.render_mode = render_mode
 
-        assert self.options.reward_type in Game.metadata["reward.type"]
-        self.reward_type = self.options.reward_type
     
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
@@ -340,40 +338,28 @@ class Game(gym.Env):
         elif pygame.sprite.spritecollideany(self.player, [self.gate]):
             done = True
             self.reward = 500
-            # If the player gets to the gate in less than X steps, then give a bonus. 
-            if self.reward_type in [4,5] and self.step_count < self.min_steps*1.2:
-                self.reward = 100
-        # End condition 3: Player does not reach the gate in less than max_steps
-        elif self.step_count >= self.options.max_steps-1:
-            done = True
-            # If the player does not reach the gate in less than max_steps steps, then give a penalty.
-            if self.reward_type == 5:
-                self.reward = -100
+            # reamining steps are added to the reward
+            self.reward += self.options.max_steps - self.step_count
+
         # Penalize hitting obstacles or turrets
         elif self.collision:
-            self.reward = -3
-        # Reward for getting closer to the gate
+            self.reward = -1
+        
+        # Reward for getting closer to the gate, penalize for getting further away or staying still
         else:
             delta_distance = self.prev_distance_to_gate - self._player_distance_to_gate()
             self.prev_distance_to_gate = self._player_distance_to_gate()
-            # Quantized reward as player gets closer to the gate. No penalty for getting further away
-            if self.reward_type == 1:
-                self.reward = 1/(self._normalized_player_distance_to_gate()**2)
-                self.reward = int(self.reward)
-            # Binary reward if player gets closer to the gate, penalty if it does not
-            elif self.reward_type in [2]:
-                self.reward = 1 if delta_distance>0 else -1
-            # Reward equal to the delta distance compared to the previous step
-            elif self.reward_type in [3,4]:
-                self.reward = delta_distance/10
-        
+            if delta_distance>0:
+                self.reward = delta_distance
+            else:
+                self.reward = -1
         return done
 
 
     def render(self):
 
         if self.render_mode == None:
-            return
+            return None
 
         canvas = pygame.Surface((self.options.width, self.options.height))
         canvas.fill((0, 0, 0))
@@ -394,6 +380,7 @@ class Game(gym.Env):
             self.screen.blit(canvas, (0, 0))
             pygame.display.flip()
             self.clock.tick(self.render_fps)
+            return None
         elif self.render_mode == "rgb_array":
             return np.transpose(
                 np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2)
