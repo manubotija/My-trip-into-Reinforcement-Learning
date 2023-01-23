@@ -1,0 +1,113 @@
+
+30o-2t-no-proj:
+  class: GameOptions
+  fire_turret_step_delay: 45
+  gate_bounds:
+    class: Bounds
+    height: 80.0
+    left: 0
+    top: 720.0
+    width: 800
+  height: 800
+  instantiate_obstacles: true
+  instantiate_turrets: true
+  max_projectiles_per_turret: 0
+  max_steps: 500
+  n_obstacles: 30
+  n_turrets: 3
+  obstacle_bounds:
+    class: Bounds
+    height: 640.0
+    left: 0
+    top: 80.0
+    width: 800
+  player_bounds:
+    class: Bounds
+    height: 80.0
+    left: 0
+    top: 0
+    width: 800
+  projectile_speed: 5
+  turret_bounds:
+    class: Bounds
+    height: 640.0
+    left: 0
+    top: 80.0
+    width: 800
+  width: 800
+
+mid-barrier-no-proj:
+  class: GameOptions
+  fire_turret_step_delay: 45
+  gate_bounds:
+    class: Bounds
+    height: 80.0
+    left: 0
+    top: 720.0
+    width: 800
+  height: 800
+  instantiate_obstacles: true
+  instantiate_turrets: true
+  max_projectiles_per_turret: 0
+  max_steps: 500
+  n_obstacles: 10
+  n_turrets: 0
+  obstacle_bounds:
+    class: Bounds
+    height: 80.0
+    left: 0
+    top: 380.0
+    width: 800
+  player_bounds:
+    class: Bounds
+    height: 80.0
+    left: 0
+    top: 0
+    width: 800
+  projectile_speed: 5
+  turret_bounds:
+    class: Bounds
+    height: 640.0
+    left: 0
+    top: 80.0
+    width: 800
+  width: 800
+  touch_obstacle_kill: False
+
+800x800-mid_barrier-no-proj-obstacle-kill:
+  class: GameOptions
+  fire_turret_step_delay: 45
+  gate_bounds:
+    class: Bounds
+    height: 80.0
+    left: 0
+    top: 720.0
+    width: 800
+  height: 800
+  instantiate_obstacles: true
+  instantiate_turrets: true
+  max_projectiles_per_turret: 0
+  max_steps: 500
+  n_obstacles: 5
+  n_turrets: 0
+  obstacle_bounds:
+    class: Bounds
+    height: 600
+    left: 0
+    top: 100
+    width: 800
+  player_bounds:
+    class: Bounds
+    height: 80.0
+    left: 0
+    top: 0
+    width: 800
+  projectile_speed: 5
+  turret_bounds:
+    class: Bounds
+    height: 640.0
+    left: 0
+    top: 80.0
+    width: 800
+  width: 800
+  touch_obstacle_kill: True
