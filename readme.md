@@ -1,4 +1,8 @@
-Pygame with reinforcement learning
+
+I launched into learning Pygame with reinforcement learning.
+
+I have documented my whole journey while learning here:
+https://medium.com/@manubotija/list/my-trip-into-reinforcement-learning-d6c244d5aa29 
 
 # Install using coda or venv
 `pip install -r requirements.txt`
@@ -36,7 +40,8 @@ TODO:
 - Run hyperparam search from CLI
 
 
+
 # Old code
 
 
-Under old_code is my first implementation of DQN, various utilities and training pipeline (up to [DAY 12](https://medium.com/@manubotija/day-12-my-trip-to-reinforcement-learning-9564500a1379)). None of it probably works out of the box since have not kept the game nor the wrapper backwards compatible 
+Under `old_code` is my the implementation of DQN, various utilities and training pipeline (up to [DAY 12](https://medium.com/@manubotija/day-12-my-trip-to-reinforcement-learning-9564500a1379)). None of it probably works out of the box since I have not kept the game nor the wrapper backwards compatible 

@@ -134,4 +134,3 @@ def add_subarguments(parser):
   parser.add_argument('--skip_frames', type=int, help='Number of frames to skip', default=4)
   parser.add_argument('--n_envs', type=int, help='Number of environments to run in parallel', default=6)
   parser.add_argument('--project_name', type=str, help='Name a project to have all logs stored in the same folder over multiple experiments', default='')
-  

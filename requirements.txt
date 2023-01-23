@@ -12,3 +12,4 @@ rich
 tqdm
 optuna
 optuna-dashboard
+imageio

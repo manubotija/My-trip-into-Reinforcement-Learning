@@ -1,7 +1,7 @@
 from game import Game, GameOptions
 from settings import *
-from train import train, add_subarguments
-from evaluate import evaluate, add_subarguments
+import train
+import evaluate
 import argparse
 
 def play(args):
@@ -32,8 +32,8 @@ if __name__ == '__main__':
     subparsers = parser.add_subparsers( title='subcommands',
                                         description='valid subcommands', required=True, dest='subcommand')
     parser_train = subparsers.add_parser('train', help='Train a model')
-    add_subarguments(parser_train)
-    parser_train.set_defaults(func=train)
+    train.add_subarguments(parser_train)
+    parser_train.set_defaults(func=train.train)
     
     parser_play = subparsers.add_parser('play', help='Play a game')
     parser_play.add_argument('scenario', type=str, help='Name of game scenario, from configs/game_scenarios.yaml')
@@ -41,8 +41,8 @@ if __name__ == '__main__':
     parser_play.set_defaults(func=play)
 
     parser_evaluate = subparsers.add_parser('evaluate', help='Evaluate a model')
-    add_subarguments(parser_evaluate)
-    parser_evaluate.set_defaults(func=evaluate)
+    evaluate.add_subarguments(parser_evaluate)
+    parser_evaluate.set_defaults(func=evaluate.evaluate)
 
     args = parser.parse_args()
     args.func(args)
