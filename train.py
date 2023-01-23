@@ -76,8 +76,8 @@ def get_PPO_model(env, tensorboard_path):
 
 def train(args):
 
-  GAME_SCENARIO = args.game_scenario
-  REWARD_SCHEME = args.reward_scheme
+  GAME_SCENARIO = args.scenario
+  REWARD_SCHEME = args.reward
   model_path = args.model_path
 
   options = GameOptions.from_yaml("configs/game_scenarios.yaml", GAME_SCENARIO)
@@ -88,7 +88,7 @@ def train(args):
   env = create_env(options, settings, vectorized=False, monitor=True, render_mode=None, n_envs=args.n_envs)
   eval_env = create_env(options, settings, vectorized=True, monitor=True, render_mode=None)
   
-  LOG_PATH = "./train_logs/" + GAME_SCENARIO + "." + REWARD_SCHEME + "{}/".format(datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
+  LOG_PATH = "./logs/" + args.project_name + "/" + GAME_SCENARIO + "_" + REWARD_SCHEME + "_{}/".format(datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
   if model_path is None:
     # Create a new model
     model = get_PPO_model(env, LOG_PATH)
@@ -108,7 +108,7 @@ def train(args):
   print("----RESULTS FOR {}".format(LOG_PATH + "----"))
   print("Eval last mean reward: {:.2f}".format(eval_callback.last_mean_reward))
   print("Eval best mean reward: {:.2f}".format(eval_callback.best_mean_reward))
-  best_model_path = eval_callback.best_model_save_path + '/best_model.zip'
+  best_model_path = eval_callback.best_model_save_path + 'best_model.zip'
   print("Best model saved to: " + best_model_path)
 
   # Save GIF for the best model
@@ -125,17 +125,13 @@ def train(args):
     evaluate(model, options, settings, deterministic=True, n_episodes=1000, save_gif_path=None)
     evaluate(model, options, settings, deterministic=False, n_episodes=1000, save_gif_path=None)
 
-if __name__ == '__main__':
-  """Command line application to train a model on a game scenario and reward scheme
-  If model path is provided, the model will be loaded from that path and trained further"""
-  parser = argparse.ArgumentParser(description='Train a model on a game scenario and reward scheme')
-  parser.add_argument('game_scenario', type=str, help='Name of game scenario')
-  parser.add_argument('reward_scheme', type=str, help='Name of reward scheme')
+def add_subarguments(parser):
+  parser.add_argument('scenario', type=str, help='Name of game scenario, from configs/game_scenarios.yaml')
+  parser.add_argument('reward', type=str, help='Name of reward scheme, from configs/rewards.yaml')
   parser.add_argument('--model_path', type=str, help='Path to model to load')
   parser.add_argument('--time_steps', type=int, help='Number of time steps to train for', default=1_000_000)
   parser.add_argument('--extra_eval', action='store_true', help='Evaluate the model on 1000 episodes')
   parser.add_argument('--skip_frames', type=int, help='Number of frames to skip', default=4)
   parser.add_argument('--n_envs', type=int, help='Number of environments to run in parallel', default=6)
-
-  args = parser.parse_args()
-  train(args)
+  parser.add_argument('--project_name', type=str, help='Name a project to have all logs stored in the same folder over multiple experiments', default='')
+  

@@ -1,5 +1,5 @@
 
-config_1:
+config-1:
   closer_reward_factor: 0.5
   closer_reward_offset: 4
   collision_penalty: -5
@@ -9,7 +9,7 @@ config_1:
   remaining_step_reward_factor: 1.5
   still_penalty: -9
   win_reward: 500
-config_2:
+config-2:
   closer_reward_factor: 0.25
   closer_reward_offset: 1
   collision_penalty: -1
@@ -19,7 +19,7 @@ config_2:
   remaining_step_reward_factor: 2
   still_penalty: -1
   win_reward: 1000
-config_3:
+config-3:
   closer_reward_factor: 0
   closer_reward_offset: -1
   collision_penalty: -1
@@ -29,7 +29,7 @@ config_3:
   remaining_step_reward_factor: 0
   still_penalty: -1
   win_reward: 1000
-config_4:
+config-4:
   closer_reward_factor: 0
   closer_reward_offset: -0.001
   collision_penalty: -0.003

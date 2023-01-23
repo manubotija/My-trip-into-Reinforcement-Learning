@@ -8,9 +8,7 @@ table_*
 tensorboard/*
 *.sqlite3
 modelzoo/*
-opt-logs/*
+*logs/*
 opt-tb/*
-eval_logs/*
-train_logs/*
 temp/*
 .DS_Store

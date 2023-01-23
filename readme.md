@@ -1,28 +1,42 @@
 Pygame with reinforcement learning
 
 # Install using coda or venv
-Then `pip install -t requirements.txt`
+`pip install -r requirements.txt`
 
-TODO: missing dependencies. sb3 needs to install from specific branch to support gym 0.26 !
+Since using specific branch of sb3 that supports gym 0.26, install using following command:
+
+`pip install git+https://github.com/carlosluis/stable-baselines3@fix_tests`
+
+see https://github.com/DLR-RM/stable-baselines3/pull/780 for more information.
+
 
 # Running
 
-Things one can do:
+Running `python main.py -h` provides all options available. Some examples are
 
-- Run the game and play it manually: `python main.py`. Use arrows to move, ESC to quit
-- Train a model using `training_pipe.py`
-- Playback a trained model using `model_player.py` (just give the code the folder path of the trained model)
+Play a game:
 
-TODO: sb3
+```bash
+python main.py play mid-barrier-no-proj config-4
+```
 
-# Documentation
+Train a model:
 
-- game.py contains the game (or enviroment), written using Pygame framework and compliant to openAI's Gym environment interface
-   - the gym interfaces allows hooking an agent (AI) to control it. It provides the observation space (what the agent sees) and the action (what the agent can do) and the methods to reset and step through the game. It supports different ways of rendering the game depending on what the agent (or the developer) needs.
-   - the game supports different options to control game parameters (screen size, complexity of the game)
-   - sprites.py defines the different objects used in the game
-- the wrapper adapts the game interface to the exact format the agent expects. It also performs some processing on the data
-- agent.py contains an implementation of a DQN agent. The agent is tested against an existing game (cartpole) in cartpole_test.py. The agent implementation comes from a Pytorch tutorial. The agent can show live plots as it trains or the final plot. The agent can also find success condition and do early stopping. The agent has a number of hyperparameters to control the algorithm
-- models.py contains the NN models to use with the agent.
-- training_pipe.py brings all together by creating the game, the wrapper, the model and the agent. It can iterate through parameter combinations to find the best combination. 
-- utils.py provides save/load capabilities 
+```bash
+python main.py train mid-barrier-no-proj config-4 --time_steps 300000 --project_name TEST
+```
+
+Evaluate a model:
+
+```bash
+python main.py evaluate mid-barrier-no-proj config-4 --model_path path/to/best_model.zip --render
+```
+
+TODO: 
+- Run hyperparam search from CLI
+
+
+# Old code
+
+
+Under old_code is my first implementation of DQN, various utilities and training pipeline (up to [DAY 12](https://medium.com/@manubotija/day-12-my-trip-to-reinforcement-learning-9564500a1379)). None of it probably works out of the box since have not kept the game nor the wrapper backwards compatible 

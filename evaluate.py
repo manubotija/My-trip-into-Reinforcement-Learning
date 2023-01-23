@@ -59,7 +59,7 @@ def get_best_length(callbak: EvalCallback):
 
     return best_length_mean, best_length_std, fastest_mean_reward, fastest_std_reward
 
-def evaluate(model, options, settings, deterministic=True, n_episodes=5, save_gif_path=False, render=False, print_results=True, vectorized=False):
+def _evaluate(model, options, settings, deterministic=True, n_episodes=5, save_gif_path=False, render=False, print_results=True, vectorized=False):
     assert not (save_gif_path and render), "Can't save gif and render at the same time" 
     images = []
     if render:
@@ -112,19 +112,26 @@ def evaluate(model, options, settings, deterministic=True, n_episodes=5, save_gi
     return np.mean(scores), np.std(scores), np.mean(lenghts), np.std(lenghts)
 
 
-if __name__ == "__main__":
-    options = GameOptions.from_yaml("configs/game_scenarios.yaml", "800x800-mid_barrier-no-proj")
-    rewards = RewardScheme.from_yaml("configs/rewards.yaml", "config_3")
+def evaluate(args):
+    options = GameOptions.from_yaml("configs/game_scenarios.yaml", args.scenario)
+    rewards = RewardScheme.from_yaml("configs/rewards.yaml", args.reward)
     settings = GameWrapperSettings(normalize=True, flatten_action=True, skip_frames=False, to_tensor=False)
     options.rew = rewards
+    model = PPO.load(args.model_path)
+    _evaluate(  model, options, settings, 
+                deterministic=args.deterministic, 
+                n_episodes=args.n_episodes, 
+                save_gif_path=args.save_gif_path, 
+                render=args.render, 
+                print_results=args.print_results, 
+                vectorized=False)
 
-    MODEL = "./opt-logs/ppo_midbarrier_config3/0/best_model.zip"
-    model = PPO.load(MODEL)
-    evaluate(model, options, settings, deterministic=True, n_episodes=10, save_gif_path=True, render=False)
-    evaluate(model, options, settings, deterministic=False, n_episodes=10, save_gif_path=True, render=False)
-    # evaluate(model, options, settings, deterministic=False, n_episodes=5, save_gif=False, render=True)
-    evaluate(model, options, settings, deterministic=True, n_episodes=100, save_gif_path=False, render=True)
-    evaluate(model, options, settings, deterministic=False, n_episodes=100, save_gif_path=False, render=True)
-
-    
-
+def add_subarguments(parser):
+    parser.add_argument('scenario', type=str, help='Name of game scenario, from configs/game_scenarios.yaml')
+    parser.add_argument('reward', type=str, help='Name of reward scheme, from configs/rewards.yaml')
+    parser.add_argument('--model_path', type=str, help='Path to model to load', required=True)
+    parser.add_argument('--deterministic', action='store_true', help='Whether to use deterministic actions', default=False)
+    parser.add_argument('--n_episodes', type=int, help='Number of episodes to evaluate', default=10)
+    parser.add_argument('--save_gif_path', type=str, help='Path to save gif to', default=None)
+    parser.add_argument('--render', action='store_true', help='Whether to render the game', default=False)
+    parser.add_argument('--print_results', action='store_true', help='Whether to print the results', default=True)
