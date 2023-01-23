@@ -3,12 +3,6 @@ from pygame.math import Vector2
 import random
 
 
-class Bounds(pygame.Rect):
-    def __init__(self, left, top, width, height):
-        super(Bounds, self).__init__(left, top, width, height)
-    def __hash__(self):
-        return hash((self.left, self.top, self.width, self.height))
-
 class BaseSprite(pygame.sprite.Sprite):
     def __init__(self) -> None:
         super(BaseSprite, self).__init__()
@@ -36,7 +30,7 @@ class BaseRandomSprite(BaseSprite):
         self.rect.left = random.randint(bounds.left, bounds.right-size[0])
         i = 0
         while pygame.sprite.spritecollideany(self, other_sprites):
-            if i >= 100:
+            if i >= 1000:
                 raise Exception("Unable to place sprite")
             i = i + 1
             self.rect.top = random.randint(bounds.top, bounds.bottom-size[1])

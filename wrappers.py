@@ -81,27 +81,16 @@ class GameWrapper(gym.Wrapper):
             if self.to_tensor:
                 action = action.cpu().numpy()
             
-        obs, reward, done, _, info = self.env.step(action)
+        obs, reward, terminated, truncated, info = self.env.step(action)
 
         if self.skip_frames is not None:
             for _ in range(self.skip_frames):
-                if done:
+                if terminated or truncated:
                     break
-                #action NOOP
-                action = self.env.get_noop_actions()
-                obs, r, done, _, info = self.env.step(action)
+                #repeat action for all skipped frames
+                obs, r, terminated, truncated, info = self.env.step(action)
                 reward+=r
         obs = self._observation(obs)
         if self.to_tensor:
             reward = torch.tensor([reward], device=self.device, dtype=torch.float32)
-        return obs, reward, done, _, info
-
-    def get_shapes(self):
-        if not self.flatten_action:
-            action_shape = (-1, len(self.env.action_space.nvec), np.max(self.env.action_space.nvec))
-            num_actions_act = self.env.action_space.nvec[0]*self.env.action_space.nvec[1]
-        else:
-            action_shape = (-1, self.action_space.n,)
-            num_actions_act = self.action_space.n
-
-        return self.obs_shape, num_actions_act, action_shape
+        return obs, reward, terminated, truncated, info

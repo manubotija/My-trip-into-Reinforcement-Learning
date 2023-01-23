@@ -11,5 +11,6 @@ modelzoo/*
 opt-logs/*
 opt-tb/*
 eval_logs/*
+train_logs/*
 temp/*
 .DS_Store

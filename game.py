@@ -4,8 +4,9 @@ import gym
 import math
 from gym import spaces
 import numpy as np
-from sprites import Player, Turret, Obstacle, Projectile, Gate, Bounds
-
+from sprites import *
+from settings import GameOptions
+import time
 # Import pygame.locals for easier access to key coordinates
 # Updated to conform to flake8 and black standards
 from pygame.locals import (
@@ -17,121 +18,7 @@ from pygame.locals import (
     KEYDOWN,
     QUIT,
 )
-
-class GameOptions():
-    
-    def __init__(self, height = 800, 
-                width=600, 
-                n_turrets=3, 
-                n_obstacles=3, 
-                max_projectiles_per_turret=5, 
-                fire_turret_step_delay=45,
-                projectile_speed=5,
-                turret_bounds : Bounds = None,
-                obstacle_bounds : Bounds = None,
-                gate_bounds : Bounds = None,
-                player_bounds : Bounds = None,
-                max_steps = 10000,
-                reward_type = 2,
-                instantiate_turrets = True,
-                instantiate_obstacles = True
-                ) -> None:
-        
-        self.height = height
-        self.width = width
-        self.n_turrets = n_turrets
-        self.n_obstacles = n_obstacles
-        self.max_projectiles_per_turret = max_projectiles_per_turret
-        self.fire_turret_step_delay = fire_turret_step_delay
-        self.max_projectiles_per_turret = max_projectiles_per_turret
-        self.fire_turret_step_delay = fire_turret_step_delay
-        self.projectile_speed = projectile_speed
-        self.max_steps = max_steps
-        self.reward_type = reward_type
-        self.instantiate_turrets = instantiate_turrets
-        self.instantiate_obstacles = instantiate_obstacles
-        
-        if turret_bounds == None:
-            self.turret_bounds = Bounds(0, 0, width*0.95, height*0.95)
-        else:
-            self.turret_bounds = turret_bounds
-        if obstacle_bounds == None:
-            self.obstacle_bounds = Bounds(0, 0, width*0.95, height*0.95)
-        else:
-            self.obstacle_bounds = obstacle_bounds
-        if gate_bounds == None:
-            self.gate_bounds = Bounds(0, 0, width*0.95, height*0.95)
-        else:
-            self.gate_bounds = gate_bounds
-        if player_bounds == None:
-            self.player_bounds = Bounds(0, 0, width*0.95, height*0.95)
-        else: 
-            self.player_bounds = player_bounds
-    
-    # Returns a dictionary of all options
-    def get_params(self):
-        return {
-            "height" : self.height,
-            "width" : self.width,
-            "n_turrets" : self.n_turrets,
-            "n_obstacles" : self.n_obstacles,
-            "max_projectiles_per_turret" : self.max_projectiles_per_turret,
-            "fire_turret_step_delay" : self.fire_turret_step_delay,
-            "projectile_speed" : self.projectile_speed,
-            "turret_bounds" : {
-                "x" : self.turret_bounds.x,
-                "y" : self.turret_bounds.y,
-                "width" : self.turret_bounds.width,
-                "height" : self.turret_bounds.height
-            },
-            "obstacle_bounds" : {
-                "x" : self.obstacle_bounds.x,
-                "y" : self.obstacle_bounds.y,
-                "width" : self.obstacle_bounds.width,
-                "height" : self.obstacle_bounds.height
-            },
-            "gate_bounds" : {
-                "x" : self.gate_bounds.x,
-                "y" : self.gate_bounds.y,
-                "width" : self.gate_bounds.width,
-                "height" : self.gate_bounds.height
-            },
-            "player_bounds" : {
-                "x" : self.player_bounds.x,
-                "y" : self.player_bounds.y,
-                "width" : self.player_bounds.width,
-                "height" : self.player_bounds.height
-            },
-            "max_steps" : self.max_steps,
-            "reward_type" : self.reward_type,
-            "instantiate_turrets" : self.instantiate_turrets,
-            "instantiate_obstacles" : self.instantiate_obstacles
-        }
-
-    def __str__(self):
-        return str(self.get_params())
-
-    # creates Options instance from dictionary
-    def from_params(params):
-        height = params["height"]
-        width = params["width"]
-        n_turrets = params["n_turrets"]
-        n_obstacles = params["n_obstacles"]
-        max_projectiles_per_turret = params["max_projectiles_per_turret"]
-        fire_turret_step_delay = params["fire_turret_step_delay"]
-        max_projectiles_per_turret = params["max_projectiles_per_turret"]
-        fire_turret_step_delay = params["fire_turret_step_delay"]
-        projectile_speed = params["projectile_speed"]
-        turret_bounds = Bounds(params["turret_bounds"]["x"], params["turret_bounds"]["y"], params["turret_bounds"]["width"], params["turret_bounds"]["height"])
-        obstacle_bounds = Bounds(params["obstacle_bounds"]["x"], params["obstacle_bounds"]["y"], params["obstacle_bounds"]["width"], params["obstacle_bounds"]["height"])
-        gate_bounds = Bounds(params["gate_bounds"]["x"], params["gate_bounds"]["y"], params["gate_bounds"]["width"], params["gate_bounds"]["height"])
-        player_bounds = Bounds(params["player_bounds"]["x"], params["player_bounds"]["y"], params["player_bounds"]["width"], params["player_bounds"]["height"])
-        max_steps = params["max_steps"]
-        reward_type = params["reward_type"]
-        instantiate_turrets = params["instantiate_turrets"]
-        instantiate_obstacles = params["instantiate_obstacles"]
-        return GameOptions(height, width, n_turrets, n_obstacles, max_projectiles_per_turret, fire_turret_step_delay, projectile_speed, turret_bounds, obstacle_bounds, gate_bounds, player_bounds, max_steps, reward_type, instantiate_turrets, instantiate_obstacles)
-
+   
 class Game(gym.Env):
     metadata = {'render.modes': ['human', 'rgb_array'], "default_render_fps": 60}
     FIRE_TURRET = pygame.USEREVENT + 1
@@ -139,6 +26,7 @@ class Game(gym.Env):
     def __init__(self, render_mode=None, render_fps=None, options=None) -> None:
 
         pygame.init()
+
         if options is None:
             self.options = GameOptions()
         else:
@@ -151,15 +39,36 @@ class Game(gym.Env):
 
         self.action_space = spaces.MultiDiscrete([2, 3])
 
-        max_coordinate = max(self.options.width, self.options.height)
+        # define observation space
         N_COORD = 4
+        
+        W = self.options.width
+        H = self.options.height
+
+        single_obs_size = N_COORD
+        single_high_obs = np.array([W,H] * (N_COORD//2))
+        single_low_obs = np.array([0] * (N_COORD))
+
+        turrets_obs_size = self.options.n_turrets * N_COORD
+        turrets_high_obs = np.array([W,H] * (turrets_obs_size//2))
+        turrets_low_obs = np.array([0] * (turrets_obs_size))
+
+        obstacles_obs_size = self.options.n_obstacles * N_COORD
+        obstacles_high_obs = np.array([W,H] * (obstacles_obs_size//2))
+        obstacles_low_obs = np.array([0] * (obstacles_obs_size))
+
+        proj_obs_size = self.options.n_turrets * self.options.max_projectiles_per_turret * N_COORD
+        proj_high_obs = np.array([W,H] * (proj_obs_size//2))
+        proj_low_obs = np.array([0] * (proj_obs_size))
+
+        # create observation space as a dict. If flatenned, names are used to determine alphabetical order.
         self.observation_space = spaces.Dict({
-            "a.player" : spaces.Box(low=0, high=max_coordinate, shape=(N_COORD,), dtype=np.int32),
-            "d.turrets" : spaces.Box(low=0, high=max_coordinate, shape=(self.options.n_turrets*N_COORD,), dtype=np.int32),
-            "c.obstacles" : spaces.Box(low=0, high=max_coordinate, shape=(self.options.n_obstacles*N_COORD,), dtype=np.int32),
-            "b.gate" : spaces.Box(low=0, high=max_coordinate, shape=(N_COORD,), dtype=np.int32),
-            "e.projectiles" : spaces.Box(low=0, high=max_coordinate, shape=(self.options.n_turrets*self.options.max_projectiles_per_turret*N_COORD,), dtype=np.int32),
-            # "z.step" : spaces.Box(low=0, high=self.options.max_steps, shape=(1,), dtype=np.int32) # calling it zstep so that flatten wrapper puts it last
+            "a.player" : spaces.Box(low=single_low_obs, high=single_high_obs, shape=(single_obs_size,), dtype=np.int32),
+            "b.gate" : spaces.Box(low=single_low_obs, high=single_high_obs, shape=(single_obs_size,), dtype=np.int32),
+            "c.obstacles" : spaces.Box(low=obstacles_low_obs, high=obstacles_high_obs, shape=(obstacles_obs_size,), dtype=np.int32),
+            "d.turrets" : spaces.Box(low=turrets_low_obs, high=turrets_high_obs, shape=(turrets_obs_size,), dtype=np.int32),
+            "e.projectiles" : spaces.Box(low=proj_low_obs, high=proj_high_obs, shape=(proj_obs_size,), dtype=np.int32),
+            # "z.step" : spaces.Box(low=0, high=self.options.max_steps, shape=(1,), dtype=np.int32)
         })
         
         assert render_mode is None or render_mode in Game.metadata["render.modes"]
@@ -205,6 +114,7 @@ class Game(gym.Env):
         self.step_count = 0
         self.score = 0
         self.reward = 0
+        self.is_success = False
 
         obs = self._get_obs()
         info = self._get_info()
@@ -219,15 +129,15 @@ class Game(gym.Env):
         return distance / (math.sqrt(self.options.width**2 + self.options.height**2))
     
     def _get_info(self):
-        return {"score": self.score}
+        return {"score": self.score, 'is_success': self.is_success}
 
     def _get_obs(self):
         # for each object return top left and bottom right coordinates
         return {
-            "a.player" : np.asarray([self.player.rect.top, self.player.rect.left, self.player.rect.bottom, self.player.rect.right], dtype=np.int32).flatten(),
-            "d.turrets" : self._get_turrets_obs(),
+            "a.player" : np.asarray([self.player.rect.left, self.player.rect.top, self.player.rect.right, self.player.rect.bottom], dtype=np.int32).flatten(),
+            "b.gate" : np.asarray([self.gate.rect.left, self.gate.rect.top, self.gate.rect.right, self.gate.rect.bottom], dtype=np.int32).flatten(),
             "c.obstacles" : self._get_obstacles_obs(),
-            "b.gate" : np.asarray([self.gate.rect.top, self.gate.rect.left, self.gate.rect.bottom, self.gate.rect.right], dtype=np.int32).flatten(),
+            "d.turrets" : self._get_turrets_obs(),
             "e.projectiles" : self._get_projectiles_obs(),
             # "z.step" : np.asarray([self.step_count+1], dtype=np.int32)
         }
@@ -240,7 +150,7 @@ class Game(gym.Env):
             turrets.append(turret)
         for _ in range(self.options.n_turrets - len(turrets)):
             turrets.append(Turret(self.options,[], dummy=True))
-        return np.asarray([[turret.rect.top, turret.rect.left, turret.rect.bottom, turret.rect.right] for turret in turrets], dtype=np.int32).flatten()
+        return np.asarray([[turret.rect.left, turret.rect.top, turret.rect.right, turret.rect.bottom] for turret in turrets], dtype=np.int32).flatten()
 
     def _get_obstacles_obs(self):
         # function that returns top left and bottom right coordinates of all obstacles
@@ -250,7 +160,7 @@ class Game(gym.Env):
             obstacles.append(obstacle)
         for _ in range(self.options.n_obstacles - len(obstacles)):
             obstacles.append(Obstacle(self.options,[], dummy=True))
-        return np.asarray([[obstacle.rect.top, obstacle.rect.left, obstacle.rect.bottom, obstacle.rect.right] for obstacle in obstacles], dtype=np.int32).flatten()
+        return np.asarray([[obstacle.rect.left, obstacle.rect.top, obstacle.rect.right, obstacle.rect.bottom] for obstacle in obstacles], dtype=np.int32).flatten()
 
     # function that returns top left and bottom right coordinates of all projectiles
     # If less than MAX_PROJECTILES_PER_TURRET * N_TURRETS, then fill with zeros
@@ -333,26 +243,36 @@ class Game(gym.Env):
         if pygame.sprite.spritecollideany(self.player, self.all_projectiles):
             self.player.kill()
             done = True
-            self.reward = -100
+            self.is_success = False
+            self.reward = self.options.rew.kill_penalty
         # End condition 2: Player reaches the gate
         elif pygame.sprite.spritecollideany(self.player, [self.gate]):
             done = True
-            self.reward = 500
-            # reamining steps are added to the reward
-            self.reward += self.options.max_steps - self.step_count
+            self.is_success = True
+            self.reward = self.options.rew.win_reward
+            # additional reward for finishing the level faster
+            self.reward += (self.options.max_steps - self.step_count)*self.options.rew.remaining_step_reward_factor
 
-        # Penalize hitting obstacles or turrets
+        # Hitting obstacles or turrets
         elif self.collision:
-            self.reward = -1
+            # End condition 3: Player hits an obstacle and touch_obstacle_kill is True
+            if self.options.touch_obstacle_kill:
+                done = True
+                self.is_success = False
+                self.reward = self.options.rew.kill_penalty
+            else:
+                self.reward = self.options.rew.collision_penalty
         
         # Reward for getting closer to the gate, penalize for getting further away or staying still
         else:
             delta_distance = self.prev_distance_to_gate - self._player_distance_to_gate()
             self.prev_distance_to_gate = self._player_distance_to_gate()
             if delta_distance>0:
-                self.reward = delta_distance
+                self.reward = delta_distance * self.options.rew.closer_reward_factor + self.options.rew.closer_reward_offset
+            elif delta_distance==0:
+                self.reward = self.options.rew.still_penalty
             else:
-                self.reward = -1
+                self.reward = delta_distance * self.options.rew.further_penalty_factor + self.options.rew.further_penalty_offset
         return done
 
 
@@ -392,11 +312,17 @@ class Game(gym.Env):
         pygame.quit()
 
     def run_loop(self):
+        prev_time = time.time()
         while self.running:
             actions = self.get_actions_from_keys()
             obs, reward, done, _, info = self.step(actions)
             self.render()
             if done:
-                print ("Done, reward: %s, score: %s" % (reward, self.score))
+                print ("Done, success: %s, score: %s, length: %s" % (self.is_success, self.score, self.step_count))
                 self.reset()
+            # compute and print fps without using pygame clock
+            fps = 1.0/(time.time()-prev_time)
+            prev_time = time.time()
+            print ("FPS: %s" % fps, end="\r", flush=True)
+            
         self.close()

@@ -193,7 +193,7 @@ class Agent():
             next_state_values[non_final_mask] = self.target_model(non_final_next_states).max(1).values
         expected_state_action_values = (next_state_values * self.hyperparams.gamma) + reward_batch
         
-        # Compute the loss
+        # Compute the Huber loss
         criterion = nn.SmoothL1Loss()
         loss = criterion(state_action_values, expected_state_action_values)
 
