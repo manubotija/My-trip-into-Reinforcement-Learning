@@ -148,12 +148,13 @@ class Obstacle(BaseRandomSprite):
                 options, all_obstacles, **kwargs):
         super(Obstacle, self).__init__(OBSTACLE_SIZE, options.obstacle_bounds, all_obstacles, **kwargs)
         self.options = options
-        surf_rect = self.surf.get_rect()
-        pygame.draw.polygon(self.surf, OBSTACLE_COLOR,[
-            (surf_rect.left,surf_rect.bottom),
-            (surf_rect.right, surf_rect.bottom),
-            ((surf_rect.right+surf_rect.left)/2,surf_rect.top)
-            ])
+        # surf_rect = self.surf.get_rect()
+        # pygame.draw.polygon(self.surf, OBSTACLE_COLOR,[
+        #     (surf_rect.left,surf_rect.bottom),
+        #     (surf_rect.right, surf_rect.bottom),
+        #     ((surf_rect.right+surf_rect.left)/2,surf_rect.top)
+        #     ])
+        self.surf.fill(OBSTACLE_COLOR)
             
 
 GATE_SIZE = (60, 20)

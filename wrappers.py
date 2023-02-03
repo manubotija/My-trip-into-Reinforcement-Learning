@@ -1,7 +1,7 @@
 import torch
 import gym
 import numpy as np
-
+import cv2
 
 class GameWrapperSettings():
     def __init__(self, normalize=True, flatten_action=True, skip_frames=None, to_tensor=None):
@@ -37,7 +37,6 @@ class GameWrapper(gym.Wrapper):
         self.normalize = wrapper_settings.normalize
         self.flatten_action = wrapper_settings.flatten_action
         self.skip_frames = wrapper_settings.skip_frames
-        self.to_tensor = wrapper_settings.to_tensor
 
         obs, _ = self.env.reset()
         self.obs_shape = obs.shape[0]
@@ -55,9 +54,6 @@ class GameWrapper(gym.Wrapper):
             obs = obs.astype(np.float32)
             #normalize it to be between -1 and 1 using the max value defined in the observation space
             obs = (obs/(self.original_observation_space.high/2) - 1).astype(np.float32)
-        if self.to_tensor:
-            #convert to torch tensor
-            obs = torch.from_numpy(obs).to(self.device, dtype=torch.float32).unsqueeze(dim=0)
         return obs
     
     def reset(self, **kwargs):
@@ -69,17 +65,7 @@ class GameWrapper(gym.Wrapper):
         
         if self.flatten_action:
             shape = [self.env.action_space.nvec[1] for _ in range(self.env.action_space.nvec[0])]
-            if self.to_tensor:
-                action = action.cpu().numpy()
             action = np.unravel_index(action, shape)
-        elif(len(action.shape) == 1):
-            action = action.squeeze(dim=0)
-            if self.to_tensor:
-                action = action.cpu().item()
-        else:
-            action = action.squeeze(dim=0)
-            if self.to_tensor:
-                action = action.cpu().numpy()
             
         obs, reward, terminated, truncated, info = self.env.step(action)
 
@@ -91,6 +77,42 @@ class GameWrapper(gym.Wrapper):
                 obs, r, terminated, truncated, info = self.env.step(action)
                 reward+=r
         obs = self._observation(obs)
-        if self.to_tensor:
-            reward = torch.tensor([reward], device=self.device, dtype=torch.float32)
+        return obs, reward, terminated, truncated, info
+
+
+class ImageWrapper(gym.Wrapper):
+    """ wraps a game environment in order to:
+    1. resize the observation by a given factor
+    2. optionally compute the difference between two consecutive frames (TODO)
+    3. covert the image to black and white
+    """
+
+    def __init__(self, env, factor: int = 16, diff: bool = False):
+
+        assert env.render_mode == "rgb_array", "ImageWrapper only works with rgb_array render mode"
+
+        super(ImageWrapper, self).__init__(env)
+        self.factor = factor
+        self.diff = diff
+        obs, _ = self.reset()
+        self.observation_space = gym.spaces.Box(low=0, high=255, shape=(obs.shape[0], obs.shape[1], 1), dtype=np.uint8)
+
+    def _observation(self):
+        obs = self.env.render()
+        # convert the image to greyscale
+        obs = cv2.cvtColor(obs, cv2.COLOR_RGB2GRAY)
+        # resize the observation by a given factor
+        obs = cv2.resize(obs, (obs.shape[1] // self.factor, obs.shape[0] // self.factor), interpolation=cv2.INTER_AREA)
+        # add a channel dimension
+        obs = np.expand_dims(obs, axis=2)
+        return obs
+
+    def reset(self, **kwargs):
+        obs, info = self.env.reset(**kwargs)
+        obs = self._observation()
+        return obs, info
+
+    def step(self, action):
+        obs, reward, terminated, truncated, info = self.env.step(action)
+        obs = self._observation()
         return obs, reward, terminated, truncated, info

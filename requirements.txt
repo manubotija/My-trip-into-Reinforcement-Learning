@@ -13,3 +13,4 @@ tqdm
 optuna
 optuna-dashboard
 imageio
+opencv-python
