@@ -1,4 +1,29 @@
 
+simple:
+  class: GameOptions
+  fire_turret_step_delay: 45
+  gate_bounds:
+    class: Bounds
+    height: 80.0
+    left: 0
+    top: 720
+    width: 800
+  height: 800
+  instantiate_obstacles: false
+  instantiate_turrets: false
+  max_projectiles_per_turret: 0
+  max_steps: 500
+  n_obstacles: 0
+  n_turrets: 0
+  player_bounds:
+    class: Bounds
+    height: 80.0
+    left: 0
+    top: 0
+    width: 800
+  projectile_speed: 5
+  width: 800
+  
 30o-2t-no-proj:
   class: GameOptions
   fire_turret_step_delay: 45
@@ -46,7 +71,7 @@ mid-barrier-no-proj:
     top: 720.0
     width: 800
   height: 800
-  instantiate_obstacles: true
+  instantiate_obstacles: false
   instantiate_turrets: true
   max_projectiles_per_turret: 0
   max_steps: 500

@@ -42,7 +42,7 @@ if __name__ == '__main__':
 
     parser_evaluate = subparsers.add_parser('evaluate', help='Evaluate a model')
     evaluate.add_subarguments(parser_evaluate)
-    parser_evaluate.set_defaults(func=evaluate.evaluate)
+    parser_evaluate.set_defaults(func=evaluate._evaluate)
 
     args = parser.parse_args()
     args.func(args)

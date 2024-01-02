@@ -40,8 +40,22 @@ TODO:
 - Run hyperparam search from CLI
 
 
+# Training metrics/heuristics
+
+- On my Macbook Air M1, I can get 3-4k fps
+- PPO starts showing improvements usually after 200-300k steps. Progress flattens at 1M steps.
+- Best metric so far for `mid-barrier-no-proj` scenario is a success rate of 70%, with average score of 0.5-0.6 (reward scheme `config-4`)
+
+
+# Other tricks
+
+Since scenario requires pygame, when training on a VM in the cloud, may need to apply this trick to prevent Pygame from failing to launch:
+
+```python
+import os
+os.environ["SDL_VIDEODRIVER"] = "dummy"
+```
 
 # Old code
-
 
 Under `old_code` is my the implementation of DQN, various utilities and training pipeline (up to [DAY 12](https://medium.com/@manubotija/day-12-my-trip-to-reinforcement-learning-9564500a1379)). None of it probably works out of the box since I have not kept the game nor the wrapper backwards compatible 

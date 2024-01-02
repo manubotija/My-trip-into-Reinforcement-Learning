@@ -14,7 +14,7 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.callbacks import EvalCallback, BaseCallback
 import pprint
-from evaluate import evaluate, create_env, get_best_length
+from _evaluate import _evaluate, create_env, get_best_length
 from callbacks import TrialEvalCallback
 import yaml
 
@@ -136,7 +136,7 @@ def find_best_model_in_study(study, options, settings, deterministic_eval=True, 
     for trial_number in completed_trial_numbers:
         path = base_path + str(trial_number) + "/best_model.zip"
         model = PPO.load(path)
-        mean_score, std_score, mean_length, std_length = evaluate(model, options, settings, deterministic=deterministic_eval, n_episodes=1000, save_gif_path=False, render=False, print_results=False, vectorized=vectorized_env)
+        mean_score, std_score, mean_length, std_length = _evaluate(model, options, settings, deterministic=deterministic_eval, n_episodes=1000, save_gif_path=False, render=False, print_results=False, vectorized=vectorized_env)
         if mean_score > best_score:
             best_score = mean_score
             best_score_std = std_score
@@ -297,10 +297,10 @@ if __name__ == "__main__":
     
     #Load model from best trial
     model = PPO.load(f"./opt-logs/{STUDY_NAME}/{trial.number}/best_model.zip")
-    evaluate(model, options, settings, deterministic=True, n_episodes=10, save_gif_path=True, render=False)
-    evaluate(model, options, settings, deterministic=False, n_episodes=10, save_gif_path=True, render=False)
-    evaluate(model, options, settings, deterministic=True, n_episodes=1000, save_gif_path=False, render=False)
-    evaluate(model, options, settings, deterministic=False, n_episodes=1000, save_gif_path=False, render=False)
+    _evaluate(model, options, settings, deterministic=True, n_episodes=10, save_gif_path=True, render=False)
+    _evaluate(model, options, settings, deterministic=False, n_episodes=10, save_gif_path=True, render=False)
+    _evaluate(model, options, settings, deterministic=True, n_episodes=1000, save_gif_path=False, render=False)
+    _evaluate(model, options, settings, deterministic=False, n_episodes=1000, save_gif_path=False, render=False)
 
     #save params to yaml file
     with open(f"./opt-logs/{STUDY_NAME}/best_trial.yaml", "w") as f:

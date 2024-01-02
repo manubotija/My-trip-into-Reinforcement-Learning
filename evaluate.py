@@ -59,7 +59,7 @@ def get_best_length(callbak: EvalCallback):
 
     return best_length_mean, best_length_std, fastest_mean_reward, fastest_std_reward
 
-def _evaluate(model, options, settings, deterministic=True, n_episodes=5, save_gif_path=False, render=False, print_results=True, vectorized=False):
+def evaluate(model, options, settings, deterministic=True, n_episodes=5, save_gif_path=False, render=False, print_results=True, vectorized=False):
     assert not (save_gif_path and render), "Can't save gif and render at the same time" 
     images = []
     if render:
@@ -97,6 +97,8 @@ def _evaluate(model, options, settings, deterministic=True, n_episodes=5, save_g
                 if info["is_success"]:
                     n_sucesses += 1
                 break
+    if render or save_gif_path:
+        img = env.render()
     if save_gif_path:
         path = save_gif_path + "game_capture_{}_{}.gif".format(str(deterministic),datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
         imageio.mimsave(path, images, fps=60)
@@ -112,13 +114,13 @@ def _evaluate(model, options, settings, deterministic=True, n_episodes=5, save_g
     return np.mean(scores), np.std(scores), np.mean(lenghts), np.std(lenghts)
 
 
-def evaluate(args):
+def _evaluate(args):
     options = GameOptions.from_yaml("configs/game_scenarios.yaml", args.scenario)
     rewards = RewardScheme.from_yaml("configs/rewards.yaml", args.reward)
     settings = GameWrapperSettings(normalize=True, flatten_action=True, skip_frames=False, to_tensor=False)
     options.rew = rewards
     model = PPO.load(args.model_path)
-    _evaluate(  model, options, settings, 
+    evaluate(  model, options, settings, 
                 deterministic=args.deterministic, 
                 n_episodes=args.n_episodes, 
                 save_gif_path=args.save_gif_path, 
@@ -135,3 +137,4 @@ def add_subarguments(parser):
     parser.add_argument('--save_gif_path', type=str, help='Path to save gif to', default=None)
     parser.add_argument('--render', action='store_true', help='Whether to render the game', default=False)
     parser.add_argument('--print_results', action='store_true', help='Whether to print the results', default=True)
+    parser.add_argument('--from_pixels', action='store_true', help='Whether to use pixels as input to policy', default=False)

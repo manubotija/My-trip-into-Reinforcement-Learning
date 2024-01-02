@@ -23,17 +23,13 @@ class GameWrapper(gym.Wrapper):
     This class provides a wrapper for the environment with multiple (optional) functions:
     - Flattens the observation
     - Normalize the observations to be between -1 and 1
-    - Convert the observation to a torch tensor
-    - Convert the action from tensor to a numpy array for the environment
-    - Convert the reward to a torch tensor
     - Skip frames
     - Insert a time limit
     """
-    def __init__(self, env, device="cpu", wrapper_settings=GameWrapperSettings()):
+    def __init__(self, env, wrapper_settings=GameWrapperSettings()):
         env = gym.wrappers.FlattenObservation(env)
         env = gym.wrappers.TimeLimit(env, max_episode_steps=env.options.max_steps)
         super(GameWrapper, self).__init__(env)
-        self.device = device
         self.normalize = wrapper_settings.normalize
         self.flatten_action = wrapper_settings.flatten_action
         self.skip_frames = wrapper_settings.skip_frames
@@ -68,7 +64,6 @@ class GameWrapper(gym.Wrapper):
             action = np.unravel_index(action, shape)
             
         obs, reward, terminated, truncated, info = self.env.step(action)
-
         if self.skip_frames is not None:
             for _ in range(self.skip_frames):
                 if terminated or truncated:
@@ -82,29 +77,33 @@ class GameWrapper(gym.Wrapper):
 
 class ImageWrapper(gym.Wrapper):
     """ wraps a game environment in order to:
-    1. resize the observation by a given factor
+    1. resize the observation to a square of a given side size
     2. optionally compute the difference between two consecutive frames (TODO)
-    3. covert the image to black and white
+    3. optionally covert the image to black and white
     """
 
-    def __init__(self, env, factor: int = 16, diff: bool = False):
+    def __init__(self, env, new_size: int = 100, diff: bool = False, bw: bool = False):
 
         assert env.render_mode == "rgb_array", "ImageWrapper only works with rgb_array render mode"
 
         super(ImageWrapper, self).__init__(env)
-        self.factor = factor
+        self.new_size = new_size
         self.diff = diff
+        self.bw = bw
+        channels = 1 if bw else 3
         obs, _ = self.reset()
-        self.observation_space = gym.spaces.Box(low=0, high=255, shape=(obs.shape[0], obs.shape[1], 1), dtype=np.uint8)
+        self.observation_space = gym.spaces.Box(low=0, high=255, shape=(new_size, new_size, channels), dtype=np.uint8)
 
     def _observation(self):
         obs = self.env.render()
-        # convert the image to greyscale
-        obs = cv2.cvtColor(obs, cv2.COLOR_RGB2GRAY)
+        if self.bw:
+            # convert the image to greyscale
+            obs = cv2.cvtColor(obs, cv2.COLOR_RGB2GRAY)
+            # add a channel dimension
+            obs = np.expand_dims(obs, axis=2)
         # resize the observation by a given factor
-        obs = cv2.resize(obs, (obs.shape[1] // self.factor, obs.shape[0] // self.factor), interpolation=cv2.INTER_AREA)
-        # add a channel dimension
-        obs = np.expand_dims(obs, axis=2)
+        obs = cv2.resize(obs, (self.new_size, self.new_size), interpolation=cv2.INTER_AREA)
+        
         return obs
 
     def reset(self, **kwargs):
